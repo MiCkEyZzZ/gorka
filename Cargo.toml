@@ -1,0 +1,18 @@
+[package]
+name = "gorka"
+version = "0.1.0"
+edition = "2021"
+description = "Compression for GLONASS/GNSS telemetry (FDMA-aware)"
+license = "MIT"
+keywords = ["gnss", "glonass", "compression", "telemetry", "tsdb"]
+categories = ["compression", "encoding", "decoding"]
+
+[lib]
+name = "gorka"
+path = "src/lib.rs"
+
+[dev-dependencies]
+proptest = "1.11.0"
+
+[dependencies]
+criterion = "0.8.2"

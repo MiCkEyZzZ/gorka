@@ -1,0 +1,46 @@
+# Project structure
+
+```text
+gorka
+├── benches
+├── docs
+│   └── PROJECT_STRUCTURE.md
+├── examples
+├── src
+│   ├── bits
+│   │   ├── mod.rs
+│   │   ├── reader.rs
+│   │   └── writer.rs
+│   ├── bits
+│   │   ├── decoder.rs
+│   │   ├── delta.rs
+│   │   ├── encoder.rs
+│   │   ├── mod.rs
+│   │   └── zigzag.rs
+│   ├── gnss
+│   │   ├── frame.rs
+│   │   ├── glonass.rs
+│   │   └── mod.rs
+│   ├── io
+│   │   └── mod.rs
+│   ├── error.rs
+│   └── lib.rs
+├── tests
+├── .gitignore
+├── .editorconfig
+├── AUTHOR.md
+├── clippy.toml
+├── Cargo.lock
+├── Cargo.toml
+├── CHANGELOG.md
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── deny.md
+├── INSTALL
+├── LICENSE
+├── rust-toolchain.toml
+├── rustfmt.toml
+├── README.md
+├── SECURITY.md
+└── taplo.toml
+```
