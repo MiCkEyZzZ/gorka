@@ -11,15 +11,16 @@ fmt-toml:
 # Форматирование всего проекта (Rust + TOML)
 fmt-all: fmt fmt-toml
 
+# Проверка форматирования без изменения файлов (CI-safe)
+fmt-check:
+    cargo fmt -- --check
+    taplo fmt --check
+
 # Clippy: все таргеты и фичи, warnings -> errors
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
-# Все тесты через cargo test
-test:
-    cargo test
-
-# Быстрые тесты без property-тестов
+# Только юнит-тесты (lib), без интеграционных и property
 test-fast:
     cargo test --lib
 
@@ -35,9 +36,6 @@ test-integration:
 test-next:
     cargo nextest run
 
-# Полный прогон проверок
-check: fmt-all lint test-next
-
 # Бенчи
 bench:
     cargo bench
@@ -46,5 +44,8 @@ bench:
 clean:
     cargo clean
 
-# Dev shortcut: всё сразу (формат + линтер + тесты)
-dev: fmt-all lint test-next
+# CI: проверяет форматирование, линтер, тесты — файлы не меняет
+check: fmt-check lint test-next
+
+# Dev shortcut: формат + все проверки
+dev: fmt-all check
