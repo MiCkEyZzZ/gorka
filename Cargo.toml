@@ -14,5 +14,5 @@ path = "src/lib.rs"
 [dependencies]
 
 [dev-dependencies]
-proptest = "1.11.0"
 criterion = "0.8.2"
+proptest = "1.11.0"

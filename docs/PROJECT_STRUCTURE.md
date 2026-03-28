@@ -18,7 +18,7 @@ gorka
 │   │   ├── mod.rs
 │   │   ├── reader.rs
 │   │   └── writer.rs
-│   ├── bits
+│   ├── codec
 │   │   ├── decoder.rs
 │   │   ├── delta.rs
 │   │   ├── encoder.rs
