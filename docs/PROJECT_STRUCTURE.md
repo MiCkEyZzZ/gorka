@@ -48,7 +48,8 @@ gorka
 ├── deny.md
 ├── INSTALL
 ├── justfile
-├── LICENSE
+├── LICENSE.APACHE
+├── LICENSE.MIT
 ├── README.md
 ├── rust-toolchain.toml
 ├── rustfmt.toml

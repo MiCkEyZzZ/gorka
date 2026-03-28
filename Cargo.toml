@@ -3,7 +3,7 @@ name = "gorka"
 version = "0.1.0"
 edition = "2021"
 description = "Compression for GLONASS/GNSS telemetry (FDMA-aware)"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["gnss", "glonass", "compression", "telemetry", "tsdb"]
 categories = ["compression", "encoding", "decoding"]
 
@@ -11,12 +11,8 @@ categories = ["compression", "encoding", "decoding"]
 name = "gorka"
 path = "src/lib.rs"
 
+[dependencies]
+
 [dev-dependencies]
 proptest = "1.11.0"
-
-[dependencies]
 criterion = "0.8.2"
-
-[[rule]]
-keys = ["workspace"]
-formatting = { reorder_keys = false }
