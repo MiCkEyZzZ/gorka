@@ -1,0 +1,67 @@
+name: Enhancement
+description: Suggest an improvement to existing Gorka functionality
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template to propose an improvement to something that **already exists** in Gorka.
+        For completely new functionality, use the **Feature Request** template instead.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Which component does this affect?
+      multiple: true
+      options:
+        - bits (reader / writer)
+        - encoding (delta / zigzag / compression)
+        - gnss (GlonassSample / frames)
+        - io
+        - error handling
+        - benchmarks
+        - tests (unit / property / integration)
+        - CI / tooling
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of enhancement
+      multiple: true
+      options:
+        - Performance (throughput, latency, memory)
+        - API / interface improvement
+        - Compression efficiency
+        - GNSS / GLONASS-specific logic
+        - File format / serialization
+        - Refactor / tech debt
+        - Testing improvements
+        - Documentation
+        - Other
+
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current behavior
+      description: Describe what Gorka currently does and why it is insufficient.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_behavior
+    attributes:
+      label: Proposed improvement
+      description: Describe what the improved behavior should look like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation ideas or challenges
+      description: Any thoughts on how to implement this, or potential difficulties.
