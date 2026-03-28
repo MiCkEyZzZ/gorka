@@ -6,6 +6,19 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **delta**
+  - реализованы функции для вычисления дельт и дельт от дельт (`delta_i64`,
+    `delta_of_delta_i64`, `delta_u64`, `delta_of_delta_u64`)
+  - реализованы функции для восстановления значений из дельт (`reconstruct_from_delta`,
+    `reconstruct_from_dod`, `reconstruct_from_dod_u64`)
+  - добавлены unit-тесты для всех функций, включая roundtrip-тесты для проверки
+    корректности вычислений
+
+- **zigzag**
+  - реализованы функции кодирования и декодирования со схемой ZigZag (`encode_i64`,
+    `decode_i64`)
+  - добавлены unit-тесты для проверки корректности кодирования/декодирования и roundtrip-тесты
+
 - **bits**
   - базовая реализация `BitWriter` и `BitReader`
   - интеграционные тесты и property-тесты для bits
@@ -40,14 +53,22 @@ All notable changes to **Gorka** are documented in this file.
   - `CHANGELOG.md` — текущий файл
 
 - **build / dev tools**
-  - `Justfile` — команды для форматирования, линтинга, тестов, bench, clean, dev workflow
+  - `Justfile` — команды для форматирования, линтинга, тестов, bench, clean, dev
+    workflow
 
 ### Changed
 
-- Ничего пока, это первый релиз структуры проекта
+- **bits/writer**
+  - метод `write_bits_signed` теперь использует `encode_i64` для записи signed
+    значений через ZigZag кодирование
+- **bits/reader**
+  - метод `read_bits_signed` теперь использует `decode_i64` для корректного чтения
+    signed значений с ZigZag декодированием
 
 ### Notes
 
 - Проект на pre-0.1 версии — API активно меняется.
-- Настроены property-тесты через `proptest` и интеграционные тесты через `cargo test`.
-- CI можно запускать через `just check` или `just dev` для полного прогонов тестов + форматирования + линтера.
+- Настроены property-тесты через `proptest` и интеграционные тесты через
+  `cargo test`.
+- CI можно запускать через `just check` или `just dev` для полного прогонов
+  тестов + форматирования + линтера.

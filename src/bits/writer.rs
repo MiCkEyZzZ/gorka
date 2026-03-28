@@ -1,4 +1,4 @@
-use crate::GorkaError;
+use crate::{encode_i64, GorkaError};
 
 pub struct BitWriter {
     buf: Vec<u8>,
@@ -60,7 +60,8 @@ impl BitWriter {
         value: i64,
         n: u8,
     ) -> Result<(), GorkaError> {
-        let zz = ((value << 1) ^ (value >> 63)) as u64;
+        let zz = encode_i64(value);
+
         self.write_bits(zz, n)
     }
 

@@ -1,4 +1,4 @@
-use crate::GorkaError;
+use crate::{decode_i64, GorkaError};
 
 pub struct BitReader<'a> {
     data: &'a [u8],
@@ -62,7 +62,7 @@ impl<'a> BitReader<'a> {
     ) -> Result<i64, GorkaError> {
         let zz = self.read_bits(n)?;
 
-        Ok(((zz >> 1) as i64) ^ -((zz & 1) as i64))
+        Ok(decode_i64(zz))
     }
 
     pub fn bits_read(&self) -> usize {
