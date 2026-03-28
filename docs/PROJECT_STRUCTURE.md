@@ -26,21 +26,25 @@ gorka
 │   ├── error.rs
 │   └── lib.rs
 ├── tests
+│   ├── bit_property.rs
+│   └── test_bitstream.rs
 ├── .gitignore
 ├── .editorconfig
 ├── AUTHOR.md
-├── clippy.toml
+├── BUGS
 ├── Cargo.lock
 ├── Cargo.toml
 ├── CHANGELOG.md
+├── clippy.toml
 ├── CODE_OF_CONDUCT.md
 ├── CONTRIBUTING.md
 ├── deny.md
 ├── INSTALL
+├── justfile
 ├── LICENSE
+├── README.md
 ├── rust-toolchain.toml
 ├── rustfmt.toml
-├── README.md
 ├── SECURITY.md
 └── taplo.toml
 ```

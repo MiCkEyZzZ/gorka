@@ -16,7 +16,10 @@ impl BitWriter {
     }
 
     #[inline(always)]
-    pub fn write_bit(&mut self, bit: bool) {
+    pub fn write_bit(
+        &mut self,
+        bit: bool,
+    ) {
         if bit {
             self.current |= 1 << (7 - self.pos);
         }
@@ -31,7 +34,11 @@ impl BitWriter {
     }
 
     #[inline(always)]
-    pub fn write_bits(&mut self, value: u64, n: u8) -> Result<(), GorkaError> {
+    pub fn write_bits(
+        &mut self,
+        value: u64,
+        n: u8,
+    ) -> Result<(), GorkaError> {
         if n > 64 {
             return Err(GorkaError::InvalidBitCount(n));
         }
@@ -48,7 +55,11 @@ impl BitWriter {
     }
 
     #[inline(always)]
-    pub fn write_bits_signed(&mut self, value: i64, n: u8) -> Result<(), GorkaError> {
+    pub fn write_bits_signed(
+        &mut self,
+        value: i64,
+        n: u8,
+    ) -> Result<(), GorkaError> {
         let zz = ((value << 1) ^ (value >> 63)) as u64;
         self.write_bits(zz, n)
     }

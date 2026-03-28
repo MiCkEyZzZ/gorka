@@ -10,7 +10,10 @@ pub enum GorkaError {
 }
 
 impl fmt::Display for GorkaError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+    ) -> fmt::Result {
         match self {
             Self::EmptyChunk => write!(f, "cannot encode empty chunk"),
             Self::UnexpectedEof => write!(f, "bit stream ended unexpectedly"),

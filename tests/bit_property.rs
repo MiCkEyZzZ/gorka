@@ -1,6 +1,5 @@
-use proptest::prelude::*;
-
 use gorka::{BitReader, BitWriter};
+use proptest::prelude::*;
 
 proptest! {
     #[test]

@@ -16,3 +16,7 @@ proptest = "1.11.0"
 
 [dependencies]
 criterion = "0.8.2"
+
+[[rule]]
+keys = ["workspace"]
+formatting = { reorder_keys = false }

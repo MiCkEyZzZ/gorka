@@ -34,7 +34,10 @@ impl<'a> BitReader<'a> {
     }
 
     #[inline(always)]
-    pub fn read_bits(&mut self, n: u8) -> Result<u64, GorkaError> {
+    pub fn read_bits(
+        &mut self,
+        n: u8,
+    ) -> Result<u64, GorkaError> {
         if n > 64 {
             return Err(GorkaError::InvalidBitCount(n));
         }
@@ -53,7 +56,10 @@ impl<'a> BitReader<'a> {
     }
 
     #[inline(always)]
-    pub fn read_bits_signed(&mut self, n: u8) -> Result<i64, GorkaError> {
+    pub fn read_bits_signed(
+        &mut self,
+        n: u8,
+    ) -> Result<i64, GorkaError> {
         let zz = self.read_bits(n)?;
 
         Ok(((zz >> 1) as i64) ^ -((zz & 1) as i64))
@@ -74,7 +80,10 @@ impl<'a> BitReader<'a> {
         }
     }
 
-    pub fn skip_bits(&mut self, n: u8) -> Result<(), GorkaError> {
+    pub fn skip_bits(
+        &mut self,
+        n: u8,
+    ) -> Result<(), GorkaError> {
         if self.bits_remaining() < n as usize {
             return Err(GorkaError::UnexpectedEof);
         }
