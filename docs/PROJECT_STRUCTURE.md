@@ -13,6 +13,7 @@ gorka
 │   └── pull_request_template.md
 ├── benches
 ├── docs
+│   ├── FORMAT.md
 │   └── PROJECT_STRUCTURE.md
 ├── examples
 ├── src
@@ -21,6 +22,9 @@ gorka
 │   │   ├── reader.rs
 │   │   └── writer.rs
 │   ├── codec
+│   │   ├── format
+│   │   │   ├── mod.rs
+│   │   │   └── version.rs
 │   │   ├── decoder.rs
 │   │   ├── delta.rs
 │   │   ├── encoder.rs

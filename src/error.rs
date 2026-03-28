@@ -7,6 +7,9 @@ pub enum GorkaError {
     InvalidSlot(i8),
     InvalidBitCount(u8),
     ValueTooLarge { value: u64, bits: u8 },
+
+    InvalidVersion(u8),
+    InvalidMagic(u32),
 }
 
 impl fmt::Display for GorkaError {
@@ -25,6 +28,12 @@ impl fmt::Display for GorkaError {
             }
             Self::ValueTooLarge { value, bits } => {
                 write!(f, "value {value} does not fit into {bits} bits")
+            }
+            Self::InvalidVersion(v) => {
+                write!(f, "invalid version: {v}")
+            }
+            Self::InvalidMagic(magic) => {
+                write!(f, "invalid magic: 0x{magic:08x}")
             }
         }
     }

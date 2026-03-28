@@ -20,7 +20,7 @@ pub struct GlonassSample {
 
 impl GlonassSample {
     pub fn validate_slot(&self) -> Result<(), GorkaError> {
-        if (-7..=6).contains(&self.slot) {
+        if !(-7..=6).contains(&self.slot) {
             return Err(GorkaError::InvalidSlot(self.slot));
         }
 

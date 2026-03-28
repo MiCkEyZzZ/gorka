@@ -6,6 +6,9 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **codec/format**
+  - добавил реализацию версии формата `FormatVersion`, а также добавил unit-тесты
+
 - **delta**
   - реализованы функции для вычисления дельт и дельт от дельт (`delta_i64`,
     `delta_of_delta_i64`, `delta_u64`, `delta_of_delta_u64`)
@@ -51,6 +54,7 @@ All notable changes to **Gorka** are documented in this file.
   - `BUGS` — файл с известными проблемами
   - `INSTALL` — инструкция по установке
   - `CHANGELOG.md` — текущий файл
+  - `FORMAT.md` - текущая версия формата
 
 - **build / dev tools**
   - `Justfile` — команды для форматирования, линтинга, тестов, bench, clean, dev
@@ -64,6 +68,12 @@ All notable changes to **Gorka** are documented in this file.
 - **bits/reader**
   - метод `read_bits_signed` теперь использует `decode_i64` для корректного чтения
     signed значений с ZigZag декодированием
+- **gnss**
+  - метод `validate_slot` изменил логику работы, теперь он корректно обрабатывает
+    ошибку
+- **error**
+  - в enum `GorkaError` добавил дополнительную обработку ошибок для версии формата:
+    `InvalidVersion`, `InvalidMagic`
 
 ### Notes
 
