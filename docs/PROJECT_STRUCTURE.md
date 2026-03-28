@@ -2,6 +2,13 @@
 
 ```text
 gorka
+├── .config
+│   └── nextest.toml
+├── .github
+│   ├── ISSUE_TEMPLATE
+│   ├── workflows
+│   ├── CODEOWNERS
+│   └── pull_request_template.md
 ├── benches
 ├── docs
 │   └── PROJECT_STRUCTURE.md
