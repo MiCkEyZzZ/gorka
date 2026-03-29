@@ -30,6 +30,11 @@ assert_eq!(r.read_bits(8).unwrap(), 42);
 - IO utilities (`io` module)
 - Error handling (`error` module)
 
+## Platform support
+
+- `std` (default)
+- `no_std` (core logic, without standard library)
+
 ## Development
 
 ```zsh
