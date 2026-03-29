@@ -1,7 +1,14 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(any(feature = "std", feature = "alloc"))]
+extern crate alloc;
+
 pub mod bits;
 pub mod codec;
 pub mod error;
 pub mod gnss;
+
+#[cfg(feature = "std")]
 pub mod io;
 
 pub use bits::{BitReader, BitWriter};

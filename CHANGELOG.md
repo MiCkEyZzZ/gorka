@@ -6,8 +6,29 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **no_std**
+  - добавлена базовая поддержка `no_std` (через `#![no_std]`)
+  - core-модули (`bits`, `codec`, `gnss`, `error`) не зависят от `std`
+  - `std` вынесен в feature-флаг (включён по умолчанию)
+  - модуль `io` компилируется только при `feature = "std"`
+  - подготовлена архитектура для будущей поддержки `alloc` и zero-allocation API
+
 - **codec/format**
-  - добавил реализацию версии формата `FormatVersion`, а также добавил unit-тесты
+  - Добавлена структура `CompatibilityInfo` с методами проверки совместимости
+    (`check`) между версиями формата.
+  - Добавлены методы в `FormatVersion`:
+    - `can_read` / `can_write` для проверки совместимости версий
+    - `is_deprecated` для отметки устаревших версий
+    - `description` для краткого текстового описания версии
+
+  - Добавлен вспомогательный модуль `VersionUtils`:
+    - `read_chunk_version` — чтение версии формата из заголовка chunk
+    - `write_chunk_header` — запись заголовка chunk с версией и количеством sample
+
+  - Добавлены unit-тесты для:
+    - проверки совместимости версий (`test_compatibility_info`)
+    - roundtrip чтения/записи заголовка (`test_chunk_header_roundtrip`)
+    - проверки обработки некорректного magic (`test_invalid_magic`)
 
 - **delta**
   - реализованы функции для вычисления дельт и дельт от дельт (`delta_i64`,
@@ -82,3 +103,6 @@ All notable changes to **Gorka** are documented in this file.
   `cargo test`.
 - CI можно запускать через `just check` или `just dev` для полного прогонов
   тестов + форматирования + линтера.
+- Начата работа по поддержке embedded-сценариев (`no_std`).
+- В текущей версии некоторые компоненты (например, `BitWriter`) всё ещё используют
+  аллокации и будут переработаны в будущем.

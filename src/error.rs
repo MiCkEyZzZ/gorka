@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 #[derive(Debug)]
 pub enum GorkaError {
@@ -7,7 +7,6 @@ pub enum GorkaError {
     InvalidSlot(i8),
     InvalidBitCount(u8),
     ValueTooLarge { value: u64, bits: u8 },
-
     InvalidVersion(u8),
     InvalidMagic(u32),
 }
@@ -39,4 +38,5 @@ impl fmt::Display for GorkaError {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for GorkaError {}

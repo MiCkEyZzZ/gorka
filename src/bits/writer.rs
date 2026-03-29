@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::{encode_i64, GorkaError};
 
 pub struct BitWriter {

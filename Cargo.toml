@@ -11,6 +11,11 @@ categories = ["compression", "encoding", "decoding"]
 name = "gorka"
 path = "src/lib.rs"
 
+[features]
+default = ["std"]
+std = []
+alloc = []
+
 [dependencies]
 
 [dev-dependencies]
