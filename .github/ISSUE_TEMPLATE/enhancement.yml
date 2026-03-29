@@ -45,20 +45,12 @@ body:
         - Other
 
   - type: textarea
-    id: current_behavior
+    id: what
     attributes:
-      label: Current behavior
-      description: Describe what Gorka currently does and why it is insufficient.
-    validations:
-      required: true
-
-  - type: textarea
-    id: proposed_behavior
-    attributes:
-      label: Proposed improvement
-      description: Describe what the improved behavior should look like.
-    validations:
-      required: true
+      label: What does the enhancement do?
+      description: |
+        Give a high-level overview of how you
+        suggest improving an existing feature or functionality.
 
   - type: textarea
     id: implementation
