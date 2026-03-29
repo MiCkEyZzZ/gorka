@@ -95,6 +95,9 @@ All notable changes to **Gorka** are documented in this file.
 - **error**
   - в enum `GorkaError` добавил дополнительную обработку ошибок для версии формата:
     `InvalidVersion`, `InvalidMagic`
+  - добавил дополнительные ошибки: `InvalidPseudorange`, `InvalidDoppler`,
+    `TimestampMismatch`, `DuplicateSlot`, `FrameFull` и для проверки логики работы
+    покрыл тестами
 
 ### Notes
 
