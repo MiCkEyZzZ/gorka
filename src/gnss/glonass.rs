@@ -1,10 +1,7 @@
-use crate::error::GorkaError;
+use crate::{error::GorkaError, MilliHz, Millimeter};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct MilliHz(pub i32);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Millimeter(i64);
+// Общие типы вынес в отдельный файл `types.rs` для удобства в будущем
+// при создании других источников таких как: GPS, Galileo, Beido
 
 /// One GLONASS telemetry observation.
 // `slot` is the FDMA frequency slot k ∈ [-7, +6].
@@ -112,22 +109,6 @@ impl GlonassSample {
     #[cfg(feature = "std")]
     pub fn doppler_hz_approx(&self) -> f64 {
         self.doppler_millihz.0 as f64 / 1_000.0
-    }
-}
-
-impl Millimeter {
-    pub fn new(v: i64) -> Self {
-        Self(v)
-    }
-}
-
-impl MilliHz {
-    pub fn new(v: i32) -> Self {
-        Self(v)
-    }
-
-    pub fn abs(self) -> Self {
-        Self(self.0.abs())
     }
 }
 

@@ -8,10 +8,15 @@ pub enum GorkaError {
     UnexpectedEof,
     /// GLONASS frequency slot `k` is outside the valid range [-7, +6]
     InvalidSlot(i8),
+    InvalidPrn(u8),
+    InvalidCn0(u8),
     /// Requested bit count exceeds 64
     InvalidBitCount(u8),
     /// Value does not fit into the requested number of bits.
-    ValueTooLarge { value: u64, bits: u8 },
+    ValueTooLarge {
+        value: u64,
+        bits: u8,
+    },
     /// Value does not fit into the requested number of bits
     InvalidVersion(u8),
     /// Chunk header contains an unrecognised format version byte
@@ -27,7 +32,10 @@ pub enum GorkaError {
     /// Stored value is the rejected raw millihertz value.
     InvalidDoppler(i32),
     /// A sample's `timestamp` does not match the frame's epoch timestamp
-    TimestampMismatch { frame: u64, sample: u64 },
+    TimestampMismatch {
+        frame: u64,
+        sample: u64,
+    },
     /// A `GnssFrame` already contains an observation for the given slot.
     DuplicateSlot(i8),
     /// A `GnssFrame` is already at capacity (`MAX_GLONASS_SATS` observations).
@@ -44,6 +52,12 @@ impl fmt::Display for GorkaError {
             Self::UnexpectedEof => write!(f, "bit stream ended unexpectedly"),
             Self::InvalidSlot(k) => {
                 write!(f, "GLONASS slot k={k} out of range [-7, +6]")
+            }
+            Self::InvalidPrn(k) => {
+                write!(f, "GPS prn k={k} out of range [-7, +6]") // Нужно исправить описание ошибки
+            }
+            Self::InvalidCn0(k) => {
+                write!(f, "GPS prn k={k} out of range [-7, +6]") // Нужно исправить описание ошибки
             }
             Self::InvalidBitCount(n) => {
                 write!(f, "invalid bit count: {n} (must be <= 64)")
