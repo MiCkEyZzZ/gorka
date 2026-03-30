@@ -8,15 +8,16 @@ pub enum GorkaError {
     UnexpectedEof,
     /// GLONASS frequency slot `k` is outside the valid range [-7, +6]
     InvalidSlot(i8),
+    /// Invalid satellite PRN (out of allowed range)
     InvalidPrn(u8),
+    /// Invalid C/N0 value (carrier-to-noise ratio)
+    /// Typically expected to be within a range like [0..=60] dB-Hz
+    /// (implementation-dependent)
     InvalidCn0(u8),
     /// Requested bit count exceeds 64
     InvalidBitCount(u8),
     /// Value does not fit into the requested number of bits.
-    ValueTooLarge {
-        value: u64,
-        bits: u8,
-    },
+    ValueTooLarge { value: u64, bits: u8 },
     /// Value does not fit into the requested number of bits
     InvalidVersion(u8),
     /// Chunk header contains an unrecognised format version byte
@@ -32,10 +33,7 @@ pub enum GorkaError {
     /// Stored value is the rejected raw millihertz value.
     InvalidDoppler(i32),
     /// A sample's `timestamp` does not match the frame's epoch timestamp
-    TimestampMismatch {
-        frame: u64,
-        sample: u64,
-    },
+    TimestampMismatch { frame: u64, sample: u64 },
     /// A `GnssFrame` already contains an observation for the given slot.
     DuplicateSlot(i8),
     /// A `GnssFrame` is already at capacity (`MAX_GLONASS_SATS` observations).
@@ -53,11 +51,11 @@ impl fmt::Display for GorkaError {
             Self::InvalidSlot(k) => {
                 write!(f, "GLONASS slot k={k} out of range [-7, +6]")
             }
-            Self::InvalidPrn(k) => {
-                write!(f, "GPS prn k={k} out of range [-7, +6]") // Нужно исправить описание ошибки
+            Self::InvalidPrn(prn) => {
+                write!(f, "invalid satellite PRN: {prn}")
             }
-            Self::InvalidCn0(k) => {
-                write!(f, "GPS prn k={k} out of range [-7, +6]") // Нужно исправить описание ошибки
+            Self::InvalidCn0(cn0) => {
+                write!(f, "invalid C/N0 value: {cn0} dB-Hz")
             }
             Self::InvalidBitCount(n) => {
                 write!(f, "invalid bit count: {n} (must be <= 64)")
