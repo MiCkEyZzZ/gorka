@@ -6,6 +6,9 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **tests**
+  - добавил интеграционные тесты для глонасс `glonass_sample.rs`
+
 - **gorka/src/types**
   - добавил общие типы для удобаства использования `GlonassSample`, `GpsSample`,
     `GalileoSample`, `BeidouSample`
