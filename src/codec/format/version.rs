@@ -114,9 +114,7 @@ impl VersionUtils {
             return Err(GorkaError::InvalidMagic(magic));
         }
 
-        let var = header[4];
-
-        FormatVersion::try_from(var)
+        FormatVersion::try_from(header[4])
     }
 
     pub fn write_chunk_header(
