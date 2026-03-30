@@ -122,13 +122,12 @@ impl VersionUtils {
     pub fn write_chunk_header(
         version: FormatVersion,
         sample_count: u32,
-    ) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(9);
+    ) -> [u8; 9] {
+        let mut buf = [0u8; 9];
 
-        buf.extend_from_slice(&CHUNK_MAGIC.to_le_bytes());
-        buf.push(version.as_u8());
-        buf.extend_from_slice(&sample_count.to_le_bytes());
-
+        buf[0..4].copy_from_slice(&CHUNK_MAGIC.to_le_bytes());
+        buf[4] = version.as_u8();
+        buf[5..9].copy_from_slice(&sample_count.to_le_bytes());
         buf
     }
 }
@@ -164,8 +163,7 @@ mod tests {
 
     #[test]
     fn test_chunk_header_roundtrip() {
-        let count = 42;
-        let header = VersionUtils::write_chunk_header(FormatVersion::V1, count);
+        let header = VersionUtils::write_chunk_header(FormatVersion::V1, 42);
 
         assert_eq!(header.len(), 9);
 
@@ -189,7 +187,9 @@ mod tests {
     #[test]
     fn test_invalid_magic() {
         let mut header = VersionUtils::write_chunk_header(FormatVersion::V1, 1);
+
         header[0] = 0x00;
+
         let err = VersionUtils::read_chunk_version(&header).unwrap_err();
 
         assert!(matches!(err, GorkaError::InvalidMagic(_)));
@@ -197,9 +197,9 @@ mod tests {
 
     #[test]
     fn test_try_from_invalid() {
-        let err = FormatVersion::try_from(2).unwrap_err();
+        let err = FormatVersion::try_from(99).unwrap_err();
 
-        assert!(matches!(err, GorkaError::InvalidVersion(2)));
+        assert!(matches!(err, GorkaError::InvalidVersion(99)));
     }
 
     #[test]
