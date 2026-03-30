@@ -1,3 +1,24 @@
+//! GLONASS encoder (черновая реализация)
+//!
+//! ⚠️ Это базовая реализация, предназначенная для проверки модели сжатия и
+//! структуры битового представления.
+//!
+//! Известные ограничения:
+//! - Пока отсутствует энтропийное кодирование (Huffman/ANS)
+//! - Нет обобщения на другие созвездия GNSS
+//! - Нет потокового / инкрементального API
+//! - Минимальная обработка ошибок
+//!
+//! TODO:
+//! - Выделить общее ядро кодировщика GNSS
+//! - Добавить декодер + тесты roundtrip
+//! - Провести бенчммарки на реальных GNSS-логах
+//! - Оптимизировать упаковку битов (SIMD / без ветвлений)
+//!
+//! ПРИМЕЧАНИЕ:
+//! В этом модуле приоритет отдан читаемости, а не максимальной
+//! производительности.
+
 use alloc::vec::Vec;
 
 use crate::{
@@ -22,8 +43,8 @@ struct EncoderState {
     last_cn0: u8,
 
     // pseudorange (mm)
-    last_pr_mm: i64,
-    last_pr_delta: i64,
+    last_pr_mm: Millimeter,
+    last_pr_delta: Millimeter,
 
     // Доплеровский сдвиг (мГц) — одна запись на каждый слот ГЛОНАСС, отсутствует до первого
     // наблюдения index = slot + 7 (slot ∈ -7..+6 → index 0..13)
@@ -47,8 +68,8 @@ impl EncoderState {
             last_delta_ts: 0,
             last_slot: sample.slot,
             last_cn0: sample.cn0_dbhz,
-            last_pr_mm: sample.pseudorange_mm.0,
-            last_pr_delta: 0,
+            last_pr_mm: sample.pseudorange_mm,
+            last_pr_delta: Millimeter(0),
             last_doppler,
             last_phase: sample.carrier_phase_cycles,
             last_phase_delta: None,
@@ -154,7 +175,7 @@ fn encode_timestamp(
         writer.write_bits(0b110, 3)?; // '110' + 9b
         writer.write_bits_signed(dod, 9)?;
     } else {
-        writer.write_bits(0b110, 3)?; // '111' + 64b verbatim
+        writer.write_bits(0b111, 3)?; // '111' + 64b verbatim
         writer.write_bits(timestamp, 64)?;
     }
 
@@ -210,8 +231,8 @@ fn encode_pseudorange(
     state: &mut EncoderState,
     pr_mm: Millimeter,
 ) -> Result<(), GorkaError> {
-    let delta = pr_mm.0 - state.last_pr_mm;
-    let dod = delta - state.last_pr_delta;
+    let delta = pr_mm.0 - state.last_pr_mm.0;
+    let dod = delta - state.last_pr_delta.0;
     let zz = encode_i64(dod);
 
     if dod == 0 {
@@ -227,8 +248,8 @@ fn encode_pseudorange(
         writer.write_bits(pr_mm.0 as u64, 64)?;
     }
 
-    state.last_pr_delta = delta;
-    state.last_pr_mm = pr_mm.0;
+    state.last_pr_delta.0 = delta;
+    state.last_pr_mm = pr_mm;
 
     Ok(())
 }
@@ -250,7 +271,7 @@ fn encode_doppler(
         // декодер также отслеживает состояние slot-first и считывает дословно здесь.
         None => {
             writer.write_bit(false); // '0' flag: verbatim
-            writer.write_bits(doppler.0 as u32 as u64, 32)?;
+            writer.write_bits(doppler.0 as u64 & 0xFFFF_FFFF, 32)?;
         }
         Some(prev) => {
             let delta = doppler.0 as i64 - prev as i64;
@@ -263,7 +284,7 @@ fn encode_doppler(
                 writer.write_bits_signed(delta, 14)?;
             } else {
                 writer.write_bits(0b111, 3)?; // '111' + 32b verbatim
-                writer.write_bits(doppler.0 as u32 as u64, 32)?;
+                writer.write_bits(doppler.0 as u64 & 0xFFFF_FFFF, 32)?;
             }
         }
     }
@@ -320,6 +341,8 @@ fn encode_carrier_phase(
 
 #[inline]
 fn slot_idx(slot: i8) -> usize {
+    debug_assert!((-7..=6).contains(&slot));
+
     (slot + 7) as usize
 }
 
