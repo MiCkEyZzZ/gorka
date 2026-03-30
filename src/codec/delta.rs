@@ -132,10 +132,9 @@ mod tests {
 
     #[test]
     fn test_roundtrip_i64() {
-        let previous = -100;
-        let prev_delta = 50;
-        let current = 75;
-
+        let previous = -100i64;
+        let prev_delta = 50i64;
+        let current = 75i64;
         let dod = delta_of_delta_i64(current, previous, prev_delta);
         let (reconstructed, new_delta) = reconstruct_from_dod(previous, prev_delta, dod);
 
@@ -148,7 +147,6 @@ mod tests {
         let previous: u64 = 100;
         let prev_delta: u64 = 25;
         let current: u64 = 150;
-
         let dod = delta_of_delta_u64(current, previous, prev_delta);
         let (reconstructed, new_delta) = reconstruct_from_dod_u64(previous, prev_delta, dod);
 

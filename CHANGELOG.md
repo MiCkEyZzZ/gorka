@@ -6,6 +6,31 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **gnss**
+  - добавлено поле `carrier_phase_cycles: Option<i64>` для хранения накопленной
+    фазы несущей (фиксированная точка, 2⁻³² cycles)
+  - добавлены методы:
+    - `validate()` — комплексная проверка всех полей
+    - `validate_pseudorange()`
+    - `validate_doppler()`
+    - `carrier_freq_mhz()` — вычисление частоты несущей по FDMA slot
+    - `is_tracked()` — проверка наличия сигнала (по CN0)
+  - добавлены константы физически допустимых диапазонов:
+    - `PSEUDORANGE_MIN_MM`, `PSEUDORANGE_MAX_MM`
+    - `DOPPLER_MAX_MHZ`
+    - `CN0_MIN_TRACKED`
+    - `BASE_FREQ_MHZ`, `FREQ_STEP_MHZ`
+    - `SLOT_MIN`, `SLOT_MAX`
+  - добавлены unit-тесты для:
+    - валидации диапазонов (slot, pseudorange, doppler)
+    - расчёта частоты несущей
+    - логики `is_tracked`
+    - проверки точности (1 mm / 1 mHz)
+  - добавлены newtype-структуры для точной физической модели:
+    - `MilliHz(pub i32)` — миллигерцы для Doppler (повышенная точность и расширенный диапазон)
+    - `Millimeter(pub i64)` — миллиметры для псевдодальности (повышенная точность, поддержка отрицательных значений)
+    - newtype используются в `GlonassSample` для хранения `doppler_millihz` и `pseudorange_mm`
+
 - **no_std**
   - добавлена базовая поддержка `no_std` (через `#![no_std]`)
   - core-модули (`bits`, `codec`, `gnss`, `error`) не зависят от `std`
@@ -98,6 +123,16 @@ All notable changes to **Gorka** are documented in this file.
   - добавил дополнительные ошибки: `InvalidPseudorange`, `InvalidDoppler`,
     `TimestampMismatch`, `DuplicateSlot`, `FrameFull` и для проверки логики работы
     покрыл тестами
+  - **gnss (BREAKING)**
+    - поле `pseudorange_m: u32` заменено на `pseudorange_mm: i64`
+      - увеличена точность до миллиметров
+      - добавлена поддержка отрицательных значений (для валидации)
+    - поле `doppler_hz: i16` заменено на `doppler_mhz: i32`
+      - увеличена точность до миллигерц (mHz)
+      - расширен диапазон значений
+    - метод `validate_slot()` больше не является единственным методом валидации;
+      добавлен `validate()` для полной проверки структуры
+    - обновлена семантика комментариев и единиц измерения (Hz → mHz, m → mm)
 
 ### Notes
 
@@ -109,3 +144,5 @@ All notable changes to **Gorka** are documented in this file.
 - Начата работа по поддержке embedded-сценариев (`no_std`).
 - В текущей версии некоторые компоненты (например, `BitWriter`) всё ещё используют
   аллокации и будут переработаны в будущем.
+- Переход на фиксированную точку (`mm`, `mHz`) устраняет ошибки округления
+  и делает формат пригодным для точной GNSS-обработки и сжатия.
