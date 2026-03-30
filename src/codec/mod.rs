@@ -5,5 +5,6 @@ pub mod format;
 pub mod zigzag;
 
 pub use delta::*;
+pub use encoder::*;
 pub use format::*;
 pub use zigzag::*;

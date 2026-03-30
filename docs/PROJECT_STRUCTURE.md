@@ -31,18 +31,17 @@ gorka
 │   │   ├── mod.rs
 │   │   └── zigzag.rs
 │   ├── gnss
-│   │   ├── beidou.rs
 │   │   ├── frame.rs
-│   │   ├── galileo.rs
 │   │   ├── glonass.rs
-│   │   ├── gps.rs
-│   │   └── mod.rs
+│   │   ├── mod.rs
+│   │   └── types.rs
 │   ├── io
 │   │   └── mod.rs
 │   ├── error.rs
 │   └── lib.rs
 ├── tests
 │   ├── bit_property.rs
+│   ├── glonass_sample.rs
 │   └── test_bitstream.rs
 ├── .gitignore
 ├── .editorconfig
