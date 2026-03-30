@@ -61,6 +61,7 @@ All notable changes to **Gorka** are documented in this file.
     - newtype используются в `GlonassSample` для хранения `doppler_millihz` и `pseudorange_mm`
 
 - **no_std**
+  - добавил базовую реализацию encoder
   - добавлена базовая поддержка `no_std` (через `#![no_std]`)
   - core-модули (`bits`, `codec`, `gnss`, `error`) не зависят от `std`
   - `std` вынесен в feature-флаг (включён по умолчанию)
