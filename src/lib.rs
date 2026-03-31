@@ -1,3 +1,7 @@
+//! Gorka — GNSS time-series compression codec.
+//!
+//! See README for usage examples.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(any(feature = "std", feature = "alloc"))]
