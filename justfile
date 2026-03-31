@@ -24,13 +24,20 @@ lint:
 test-fast:
     cargo test --lib
 
-# Property-тесты (отдельный файл)
-test-prop:
+# Property-тесты: bit_property.rs
+test-prop-bit:
     cargo test --test bit_property
+
+# Property-тесты: codec_property.rs
+test-prop-codec:
+    cargo test --test codec_property
+
+# Property-тесты: оба файла подряд
+test-prop: test-prop-bit test-prop-codec
 
 # Интеграционные тесты (tests/ файлы)
 test-integration:
-    cargo test --test test_bitstream
+    cargo test --tests
 
 # Полный запуск через nextest (рекомендуется для CI)
 test-next:
