@@ -2,10 +2,13 @@
 name = "gorka"
 version = "0.1.0"
 edition = "2021"
-description = "Compression for GLONASS/GNSS telemetry (FDMA-aware)"
+authors = ["Mikhail Zhuravlev"]
+description = "High-performance GNSS time-series compression codec"
 license = "MIT OR Apache-2.0"
-keywords = ["gnss", "glonass", "compression", "telemetry", "tsdb"]
-categories = ["compression", "encoding", "decoding"]
+repository = "https://github.com/MiCkEyZzZ/gorka"
+readme = "README.md"
+keywords = ["gnss", "compression", "time-series", "glonass", "codec"]
+categories = ["compression", "science"]
 
 [lib]
 name = "gorka"
