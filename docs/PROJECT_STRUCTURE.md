@@ -13,8 +13,13 @@ gorka
 │   └── pull_request_template.md
 ├── benches
 ├── docs
+│   ├── API.md
+│   ├── ARCHITECTURE.md
+│   ├── BENCHMARKS.md
+│   ├── ENCODING.md
 │   ├── FORMAT.md
-│   └── PROJECT_STRUCTURE.md
+│   ├── PROJECT_STRUCTURE.md
+│   └── TESTING.md
 ├── examples
 ├── src
 │   ├── bits
