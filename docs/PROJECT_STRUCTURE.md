@@ -41,6 +41,9 @@ gorka
 │   └── lib.rs
 ├── tests
 │   ├── bit_property.rs
+│   ├── codec_property.rs
+│   ├── compression_ratio.rs
+│   ├── encoder_tests.rs
 │   ├── glonass_sample.rs
 │   └── test_bitstream.rs
 ├── .gitignore
