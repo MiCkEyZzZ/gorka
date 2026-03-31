@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use crate::{BitReader, GlonassSample, GorkaError, MilliHz, Millimeter, VersionUtils};
 
 const N_SLOT: usize = 14;

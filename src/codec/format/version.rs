@@ -1,3 +1,5 @@
+use alloc::{format, vec::Vec};
+
 use crate::GorkaError;
 
 pub const CHUNK_MAGIC: u32 = 0x474F524B;
@@ -8,7 +10,6 @@ pub enum FormatVersion {
     V1 = 1,
 }
 
-#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub struct CompatibilityInfo {
     pub reader_version: FormatVersion,
