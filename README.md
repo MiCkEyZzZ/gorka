@@ -6,13 +6,34 @@
 **Gorka** is a high-performance Rust library for compressing and
 decompressing GNSS (Global Navigation Satellite System) time-series data.
 
-A production-oriented time-series compression codec tailored for GNSS workloads.
+A production-oriented time-series compression codec tailored for GNSS workloads,
+focusing on performance, compactness, and correctness.
 
 It is designed for efficient storage and transmission of satellite
 measurements such as pseudorange, Doppler, carrier phase, and signal quality.
 
 The current implementation focuses on GLONASS, with planned support for
 other constellations including GPS, Galileo, and BeiDou.
+
+## Why Gorka?
+
+GNSS time-series data has unique properties:
+
+- High temporal correlation
+- High-precision measurements (mm / mHz)
+- Multi-signal interleaving (multiple satellites)
+- Frequent small deltas with occasional large jumps
+
+General-purpose compressors (e.g. gzip, zstd) fail to exploit these patterns efficiently.
+
+Gorka is designed specifically for GNSS workloads, achieving significantly better
+compression ratios by combining:
+
+- Domain-specific delta modeling
+- Slot-aware state tracking (GLONASS FDMA)
+- Bit-level encoding strategies
+
+The result is a compact, fast, and predictable binary format.
 
 ## Status
 
@@ -55,14 +76,32 @@ gorka = "0.1" # or latest
 
 ## Compression Model
 
-- Delta encoding
-- Delta-of-delta encoding
-- Bit-packing
-- Variable-length control bits
+Gorka combines several techniques:
 
-The approach is inspired by the Gorilla time-series compression algorithm,
-but adapted and extended for GNSS-specific data patterns (multi-signal,
-high-precision measurements, and slot-based state).
+- Delta and delta-of-delta encoding
+- Variable-length bit packing
+- Zigzag encoding for signed values
+- Field-specific encoding strategies
+- Stateful prediction per signal (e.g. per-slot Doppler)
+
+The design is inspired by the Gorilla time-series compression algorithm,
+but extends it for GNSS-specific challenges such as:
+
+- Multi-satellite interleaving
+- High-precision numeric fields
+- Optional signals (e.g. carrier phase)
+
+## Compression Performance
+
+Typical compression ratios (current implementation):
+
+| Signal type | Ratio |
+| ----------- | ----- |
+| Constant    | ~20×  |
+| Smooth      | ~7×   |
+| Noisy       | ~2×   |
+
+Results depend on signal characteristics.
 
 ## Supported Data (GLONASS)
 
@@ -75,15 +114,21 @@ high-precision measurements, and slot-based state).
 
 ## Roadmap
 
-Planned improvements:
+### Core features
 
 - GPS / Galileo / BeiDou support
-- Entropy coding (Huffman / ANS)
 - Streaming encoder/decoder API
+- Cross-constellation compression model
+
+### Compression improvements
+
+- Entropy coding (Huffman / ANS)
+- Advanced predictive models (beyond delta)
+
+### Performance
+
 - SIMD / branchless optimizations
 - Real-world GNSS dataset benchmarks
-- Cross-constellation compression model
-- Advanced predictive models (beyond delta)
 
 ## Testing
 
