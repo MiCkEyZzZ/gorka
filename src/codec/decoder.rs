@@ -403,3 +403,356 @@ fn slot_to_idx(slot: i8) -> usize {
 fn idx_to_slot(idx: u64) -> i8 {
     idx as i8 - 7
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::codec::GlonassEncoder;
+
+    const BASE_TS: u64 = 1_700_000_000_000;
+
+    fn sample(
+        i: u64,
+        slot: i8,
+    ) -> GlonassSample {
+        GlonassSample {
+            timestamp_ms: BASE_TS + i,
+            slot,
+            cn0_dbhz: 40 + (i % 10) as u8,
+            pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 222),
+            doppler_millihz: MilliHz::new(1_200_000 + i as i32 * 50),
+            carrier_phase_cycles: Some(100_000_i64 + i as i64 * 21 * (1 << 16)),
+        }
+    }
+
+    fn constant_sample(
+        timestamp_offset: u64,
+        slot: i8,
+    ) -> GlonassSample {
+        GlonassSample {
+            timestamp_ms: BASE_TS + timestamp_offset,
+            slot,
+            cn0_dbhz: 42,
+            pseudorange_mm: Millimeter::new(21_500_000_000),
+            doppler_millihz: MilliHz::new(1_200_500),
+            carrier_phase_cycles: None,
+        }
+    }
+
+    fn roundtrip(sample: &[GlonassSample]) -> Vec<GlonassSample> {
+        let encoder = GlonassEncoder::encode_chunk(sample).expect("encode failed");
+
+        GlonassDecoder::decode_chunk(&encoder).expect("decode failed")
+    }
+
+    fn assert_eq_sample(
+        o: &GlonassSample,
+        d: &GlonassSample,
+        idx: usize,
+    ) {
+        assert_eq!(o.timestamp_ms, d.timestamp_ms, "sample[{idx}] timestamp");
+        assert_eq!(o.slot, d.slot, "sample[{idx}] slot");
+        assert_eq!(o.cn0_dbhz, d.cn0_dbhz, "sample[{idx}] cn0");
+        assert_eq!(
+            o.pseudorange_mm, d.pseudorange_mm,
+            "sample[{idx}] pseudorange"
+        );
+        assert_eq!(
+            o.doppler_millihz, d.doppler_millihz,
+            "sample[{idx}] doppler"
+        );
+        assert_eq!(
+            o.carrier_phase_cycles, d.carrier_phase_cycles,
+            "sample[{idx}] carrier_phase"
+        );
+    }
+
+    #[test]
+    fn test_decode_empty_data_returns_error() {
+        assert!(matches!(
+            GlonassDecoder::decode_chunk(&[]).unwrap_err(),
+            GorkaError::UnexpectedEof
+        ));
+    }
+
+    #[test]
+    fn test_decode_truncated_header_returns_error() {
+        assert!(matches!(
+            GlonassDecoder::decode_chunk(&[0x4B, 0x52, 0x4F, 0x47]).unwrap_err(),
+            GorkaError::UnexpectedEof,
+        ));
+    }
+
+    #[test]
+    fn test_decode_wrong_magic_returns_error() {
+        let mut buf = GlonassEncoder::encode_chunk(&[sample(0, 1)]).unwrap();
+
+        buf[0] ^= 0xFF;
+
+        assert!(matches!(
+            GlonassDecoder::decode_chunk(&buf).unwrap_err(),
+            GorkaError::InvalidMagic(_),
+        ));
+    }
+
+    #[test]
+    fn test_decode_wrong_version_returns_error() {
+        let mut buf = GlonassEncoder::encode_chunk(&[sample(0, 1)]).unwrap();
+
+        buf[4] = 99;
+
+        assert!(matches!(
+            GlonassDecoder::decode_chunk(&buf).unwrap_err(),
+            GorkaError::InvalidVersion(99),
+        ));
+    }
+
+    #[test]
+    fn test_roundtrip_1_sample() {
+        let orig = vec![sample(0, 1)];
+        let dec = roundtrip(&orig);
+
+        assert_eq!(dec.len(), 1);
+        assert_eq_sample(&orig[0], &dec[0], 0);
+    }
+
+    #[test]
+    fn test_roundtrip_10_samples() {
+        let orig: Vec<_> = (0..10).map(|i| sample(i, 1)).collect();
+        let dec = roundtrip(&orig);
+
+        assert_eq!(dec.len(), 10);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq_sample(o, d, i);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_100_samples() {
+        let orig: Vec<_> = (0..100).map(|i| sample(i, 2)).collect();
+        let dec = roundtrip(&orig);
+
+        assert_eq!(dec.len(), 100);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq_sample(o, d, i);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_pseudorange_1mm_precision() {
+        let orig: Vec<_> = (0..64u64)
+            .map(|i| GlonassSample {
+                pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64),
+                ..constant_sample(i, 1)
+            })
+            .collect();
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.pseudorange_mm, d.pseudorange_mm, "pr[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_doppler_1mhz_precision() {
+        let orig: Vec<_> = (0..64i32)
+            .map(|i| GlonassSample {
+                doppler_millihz: MilliHz::new(1_200_000 + i),
+                ..constant_sample(i as u64, 0)
+            })
+            .collect();
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.doppler_millihz, d.doppler_millihz, "doppler[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_negative_doppler() {
+        let orig: Vec<_> = (0..32u64)
+            .map(|i| GlonassSample {
+                doppler_millihz: MilliHz::new(-3_000_000 + i as i32 * 100),
+                ..constant_sample(i, -5)
+            })
+            .collect();
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.doppler_millihz, d.doppler_millihz, "neg_doppler[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_cn0_variation() {
+        let vals: &[u8] = &[20, 25, 42, 50, 35, 22, 44, 48, 30];
+        let orig: Vec<_> = vals
+            .iter()
+            .enumerate()
+            .map(|(i, &cn0)| GlonassSample {
+                cn0_dbhz: cn0,
+                ..constant_sample(i as u64, 1)
+            })
+            .collect();
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.cn0_dbhz, d.cn0_dbhz, "cn0[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_all_valid_slots() {
+        for slot in -7_i8..=6 {
+            let orig: Vec<_> = (0..32).map(|i| sample(i, slot)).collect();
+            let dec = roundtrip(&orig);
+
+            for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+                assert_eq_sample(o, d, i);
+            }
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_slot_change_within_chunk() {
+        let mut orig = Vec::new();
+
+        for i in 0..32u64 {
+            orig.push(sample(i * 2, 1));
+            orig.push(sample(i * 2 + 1, -3));
+        }
+
+        let dec = roundtrip(&orig);
+
+        assert_eq!(dec.len(), orig.len());
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq_sample(o, d, i);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_no_carrier_phase() {
+        let orig: Vec<_> = (0..32).map(|i| constant_sample(i, 0)).collect();
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.carrier_phase_cycles, d.carrier_phase_cycles, "phase[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_carrier_phase_constant() {
+        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.carrier_phase_cycles, d.carrier_phase_cycles, "phase[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_carrier_phase_acquired_mid_stream() {
+        let mut orig: Vec<_> = (0..8).map(|i| constant_sample(i, 0)).collect();
+
+        for i in 8..16u64 {
+            orig.push(GlonassSample {
+                timestamp_ms: BASE_TS + i,
+                carrier_phase_cycles: Some(i as i64 * (1 << 16)),
+                ..constant_sample(i, 0)
+            });
+        }
+
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.carrier_phase_cycles, d.carrier_phase_cycles, "phase[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_carrier_phase_lost_mid_stream() {
+        let mut orig: Vec<_> = (0..8).map(|i| sample(i, 0)).collect();
+        for i in 8..16u64 {
+            orig.push(GlonassSample {
+                carrier_phase_cycles: None,
+                ..constant_sample(i, 0)
+            });
+        }
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.carrier_phase_cycles, d.carrier_phase_cycles, "phase[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_carrier_phase_reacquired() {
+        let mk = |ts: u64, phase: Option<i64>| GlonassSample {
+            carrier_phase_cycles: phase,
+            ..constant_sample(ts, 2)
+        };
+        let orig = vec![
+            mk(0, None),
+            mk(1, None),
+            mk(2, Some(1_000_000)),
+            mk(3, Some(1_021_000)),
+            mk(4, None),
+            mk(5, None),
+            mk(6, Some(2_000_000)),
+            mk(7, Some(2_021_000)),
+        ];
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.carrier_phase_cycles, d.carrier_phase_cycles, "phase[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_large_timestamp_gap() {
+        let orig = vec![
+            constant_sample(0, 0),
+            constant_sample(1, 0),
+            GlonassSample {
+                timestamp_ms: BASE_TS + 10_001,
+                ..constant_sample(10_001, 0)
+            },
+        ];
+
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq_sample(o, d, i);
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_irregular_timestamps() {
+        let offsets = [0u64, 1, 3, 8, 108];
+        let orig: Vec<_> = offsets.iter().map(|&t| constant_sample(t, 1)).collect();
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.timestamp_ms, d.timestamp_ms, "ts[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_roundtrip_large_pseudorange_jump() {
+        let mut orig = vec![constant_sample(0, 0), constant_sample(1, 0)];
+
+        orig.push(GlonassSample {
+            pseudorange_mm: Millimeter::new(21_500_000_000 + 1_000_000),
+            ..constant_sample(2, 0)
+        });
+
+        let dec = roundtrip(&orig);
+
+        for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
+            assert_eq!(o.pseudorange_mm, d.pseudorange_mm, "pr[{i}]");
+        }
+    }
+}
