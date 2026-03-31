@@ -63,13 +63,122 @@ All notable changes to **Gorka** are documented in this file.
     - newtype используются в `GlonassSample` для хранения `doppler_millihz` и `pseudorange_mm`
 
 - **no_std**
-  - добавил базовую реализацию encoder
-  - добавил базовую реализацию decoder
   - добавлена базовая поддержка `no_std` (через `#![no_std]`)
   - core-модули (`bits`, `codec`, `gnss`, `error`) не зависят от `std`
   - `std` вынесен в feature-флаг (включён по умолчанию)
   - модуль `io` компилируется только при `feature = "std"`
   - подготовлена архитектура для будущей поддержки `alloc` и zero-allocation API
+
+- **codec/encoder**
+  - добавлена полноценная реализация `GlonassEncoder` для сжатия GNSS-наблюдений
+    в бинарный chunk-формат
+
+  - реализован stateful-encoder (`EncoderState`):
+    - хранение предыдущих значений для всех полей (timestamp, slot, CN0,
+      pseudorange, doppler, carrier phase)
+    - отдельное состояние доплера для каждого GLONASS slot (FDMA-aware)
+    - поддержка delta и delta-of-delta схем (timestamp, pseudorange, carrier phase)
+
+  - реализована компрессия chunk:
+    - запись заголовка через `VersionUtils::write_chunk_header`
+    - первый sample кодируется в verbatim формате
+    - последующие sample кодируются побитово через `BitWriter`
+
+  - реализовано кодирование всех полей:
+    - `timestamp` — delta-of-delta схема (4 bucket’а)
+    - `slot` — 1-битный флаг + индекс (при изменении)
+    - `cn0` — delta + ZigZag
+    - `pseudorange` — delta-of-delta (mm, 3 bucket’а + verbatim)
+    - `doppler` — per-slot delta схема с verbatim fallback (FDMA-aware)
+    - `carrier_phase_cycles` — optional поле с поддержкой:
+      - появления/потери сигнала
+      - delta-of-delta кодирования
+      - сброса состояния при больших скачках
+
+  - реализованы ключевые свойства формата:
+    - первый sample хранится полностью (verbatim)
+    - все последующие кодируются относительно состояния
+    - минимизация размера через bit-level encoding
+    - поддержка отрицательных значений через ZigZag
+
+  - добавлены вспомогательные функции:
+    - `encode_verbatim`
+    - `encode_delta`
+    - `encode_timestamp`
+    - `encode_slot`
+    - `encode_cn0`
+    - `encode_pseudorange`
+    - `encode_doppler`
+    - `encode_carrier_phase`
+
+  - добавлены unit- и интеграционные тесты для encoder:
+    - тесты заголовка (magic, version, count)
+    - тесты verbatim-формата (размер, порядок полей)
+    - тесты валидации входных данных (`InvalidSlot`, `EmptyChunk`)
+    - тесты всех slot (-7..=6)
+    - тесты multi-slot chunk
+    - тесты carrier phase:
+      - отсутствие
+      - появление / потеря / повторное появление
+    - тесты timestamp:
+      - равномерный шаг (DoD = 0)
+      - большие разрывы (verbatim fallback)
+    - тесты коэффициента сжатия:
+      - constant signal (≥8×)
+      - smooth signal (≥3×)
+    - тесты устойчивости к большим значениям и edge-case’ам
+
+- **codec/decoder**
+  - добавлена полноценная реализация `GlonassDecoder` для декодирования chunk’ов
+  - реализован stateful-декодер (`DecoderState`), синхронизированный с encoder:
+    - хранение предыдущих значений для всех полей (timestamp, slot, CN0,
+      pseudorange, doppler, carrier phase)
+    - отдельное состояние доплера для каждого GLONASS slot (FDMA-aware)
+    - поддержка delta и delta-of-delta схем (timestamp, pseudorange, carrier phase)
+
+  - реализована декомпрессия chunk:
+    - чтение заголовка через `VersionUtils::read_chunk_version`
+    - декодирование первого sample в verbatim формате
+    - побитовое декодирование остальных sample через `BitReader`
+
+  - реализовано декодирование всех полей:
+    - `timestamp` — delta-of-delta схема (4 bucket’а)
+    - `slot` — изменение через флаг + индекс
+    - `cn0` — delta + ZigZag
+    - `pseudorange` — delta-of-delta (mm, 4 bucket’а)
+    - `doppler` — per-slot delta схема с verbatim fallback
+    - `carrier_phase_cycles` — optional поле с поддержкой:
+      - появления/потери сигнала
+      - delta-of-delta кодирования
+      - сброса состояния
+
+  - обеспечена полная совместимость с encoder (roundtrip без потерь)
+
+  - добавлены вспомогательные функции:
+    - `decode_verbatim`
+    - `decode_delta`
+    - `decode_timestamp`
+    - `decode_pseudorange`
+    - `decode_doppler`
+    - `decode_carrier_phase`
+
+  - добавлены unit- и интеграционные тесты для decoder:
+    - roundtrip тесты (1 / 10 / 100 samples)
+    - тесты точности (1 mm / 1 mHz)
+    - тесты отрицательных значений (doppler)
+    - тесты всех slot (-7..=6)
+    - тесты смены slot внутри chunk
+    - тесты carrier phase:
+      - отсутствие
+      - постоянное значение
+      - появление / потеря / повторное появление
+    - тесты timestamp:
+      - большие разрывы
+      - нерегулярные интервалы
+    - тесты ошибок:
+      - `UnexpectedEof`
+      - `InvalidMagic`
+      - `InvalidVersion`
 
 - **codec/format**
   - Добавлена структура `CompatibilityInfo` с методами проверки совместимости
@@ -167,6 +276,10 @@ All notable changes to **Gorka** are documented in this file.
       добавлен `validate()` для полной проверки структуры
     - обновлена семантика комментариев и единиц измерения (Hz → mHz, m → mm)
   - добавил два новых типа ошибок: `InvalidPrn`, `InvalidCn0`
+- **codec**
+  - encoder и decoder приведены к полной симметрии по битовому формату
+  - уточнена семантика bit-stream (bucket’ы, DoD, verbatim fallback)
+  - улучшена согласованность состояния между encode/decode (state machine)
 
 ### Notes
 
