@@ -6,6 +6,9 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **docs**
+  - добавлен документ спецификации формата `FORMAT.md` (Gorka Binary Format v1)
+
 - **tests**
   - добавил интеграционные тесты для глонасс `glonass_sample.rs`
   - добавил интеграционные тесты для encoder `encoder_tests.rs`
