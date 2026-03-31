@@ -1,5 +1,8 @@
 # Gorka — GNSS Time-Series Compression
 
+[![crates.io](https://img.shields.io/crates/v/gorka.svg)](https://crates.io/crates/gorka)
+[![docs.rs](https://docs.rs/gorka/badge.svg)](https://docs.rs/gorka)
+
 **Gorka** is a high-performance Rust library for compressing and
 decompressing GNSS (Global Navigation Satellite System) time-series data.
 
