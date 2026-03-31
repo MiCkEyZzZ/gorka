@@ -74,6 +74,19 @@ assert_eq!(samples, decoded);
 gorka = "0.1" # or latest
 ```
 
+## Examples
+
+Gorka ships with working examples in the `examples/` folder. You can run them
+with Cargo:
+
+```zsh
+cargo run --example encode_decode
+# → Basic encode/decode test
+
+cargo run --example edge_cases
+# → Edge case test (missing carrier phase, multi-slot gaps, etc.)
+```
+
 ## Compression Model
 
 Gorka combines several techniques:
