@@ -8,6 +8,8 @@ All notable changes to **Gorka** are documented in this file.
 
 - **tests**
   - добавил интеграционные тесты для глонасс `glonass_sample.rs`
+  - добавил интеграционные тесты для encoder `encoder_tests.rs`
+  - добавил проперти тесты для codec `codec_property.rs`
 
 - **gorka/src/types**
   - добавил общие типы для удобаства использования `GlonassSample`, `GpsSample`,
@@ -249,6 +251,11 @@ All notable changes to **Gorka** are documented in this file.
     workflow
 
 ### Changed
+
+- **gorka**
+  - обновил файл с командами для разработки `justfile`:
+    - сделал команду запуска конкретного проперти теста по имени файла
+    - сделал команду запуска сразу всех проперти тестов
 
 - **bits/writer**
   - метод `write_bits_signed` теперь использует `encode_i64` для записи signed
