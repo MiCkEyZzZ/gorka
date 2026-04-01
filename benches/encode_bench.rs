@@ -19,9 +19,6 @@ use gorka::{
 
 const BASE_TS: u64 = 1_700_000_000_000;
 
-// ── генераторы датасетов
-// ──────────────────────────────────────────────────────
-
 /// Плавный реалистичный сигнал одного спутника.
 /// Моделирует типичный GLONASS поток: монотонный timestamp, медленный дрейф
 /// полей.
@@ -73,9 +70,6 @@ fn multi_slot_samples(n: usize) -> Vec<GlonassSample> {
         .collect()
 }
 
-// ── encode benchmarks
-// ─────────────────────────────────────────────────────────
-
 fn bench_encode_smooth(c: &mut Criterion) {
     let mut group = c.benchmark_group("encode/smooth");
 
@@ -123,9 +117,6 @@ fn bench_encode_multi_slot(c: &mut Criterion) {
 
     group.finish();
 }
-
-// ── decode benchmarks
-// ─────────────────────────────────────────────────────────
 
 fn bench_decode_smooth(c: &mut Criterion) {
     let mut group = c.benchmark_group("decode/smooth");
@@ -176,8 +167,6 @@ fn bench_decode_multi_slot(c: &mut Criterion) {
     group.finish();
 }
 
-// ── roundtrip: encode + decode вместе ────────────────────────────────────────
-
 fn bench_roundtrip(c: &mut Criterion) {
     let mut group = c.benchmark_group("roundtrip");
 
@@ -196,9 +185,6 @@ fn bench_roundtrip(c: &mut Criterion) {
 
     group.finish();
 }
-
-// ── регистрация
-// ───────────────────────────────────────────────────────────────
 
 criterion_group!(
     encode_benches,

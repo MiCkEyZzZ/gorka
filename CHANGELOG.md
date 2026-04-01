@@ -11,6 +11,13 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Changed
 
+- **.github**
+  - обновил `CODEOWNERS` файл
+- **benches**
+  - обновил документацию по коду для `bitio_bench.rs` и `encode_bench.rs`
+- **docs**
+  - обновил `PROJECT_STRUCTURE.md`
+
 ### Notes
 
 ## [0.1.0] — 2026-03-31

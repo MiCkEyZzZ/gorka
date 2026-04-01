@@ -1,9 +1,45 @@
 # Gorka CODEOWNERS
 
-# Назначение владельца (ответственного) для разных частей проекта.
+# Assigns ownership (responsibility) for different parts of the project.
 
 # ================================
-# Основной код
+# Core code
 # ================================
-/gorka/ @MiCkEyZzZ
+/src/ @MiCkEyZzZ
+/src/bits/ @MiCkEyZzZ
+/src/codec/ @MiCkEyZzZ
+/src/gnss/ @MiCkEyZzZ
+/src/io/ @MiCkEyZzZ
+
+# ================================
+# Fuzzing and tests
+# ================================
+/tests/ @MiCkEyZzZ
+/benches/ @MiCkEyZzZ
+
+# ================================
+# Examples
+# ================================
+/examples/ @MiCkEyZzZ
+
+# ================================
+# CI/CD and GitHub
+# ================================
 /.github/workflows/ @MiCkEyZzZ
+/.github/ISSUE_TEMPLATE/ @MiCkEyZzZ
+/.github/pull_request_template.md @MiCkEyZzZ
+
+# ================================
+# Documentation
+# ================================
+/docs/ @MiCkEyZzZ
+
+# ================================
+# Scripts and utilities
+# ================================
+/justfile @MiCkEyZzZ
+
+# ================================
+# Root files (fallback)
+# ================================
+* @MiCkEyZzZ

@@ -12,15 +12,21 @@ gorka
 │   ├── CODEOWNERS
 │   └── pull_request_template.md
 ├── benches
+│   ├── bitio_bench.rs
+│   ├── encode_bench.rs
+│   └── README.md
 ├── docs
 │   ├── API.md
 │   ├── ARCHITECTURE.md
 │   ├── BENCHMARKS.md
 │   ├── ENCODING.md
 │   ├── FORMAT.md
+│   ├── DECODER.md
 │   ├── PROJECT_STRUCTURE.md
 │   └── TESTING.md
 ├── examples
+│   ├── edge_cases.rs
+│   └── encode_decode.rs
 ├── src
 │   ├── bits
 │   │   ├── mod.rs
