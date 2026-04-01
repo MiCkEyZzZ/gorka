@@ -16,9 +16,6 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use gorka::{decode_i64, delta_of_delta_i64, encode_i64, BitReader, BitWriter};
 
-// ── BitWriter: write_bits
-// ─────────────────────────────────────────────────────
-
 fn bench_write_bits_aligned(c: &mut Criterion) {
     let mut group = c.benchmark_group("bitio/write_bits");
 
@@ -94,9 +91,6 @@ fn bench_write_bits_stream(c: &mut Criterion) {
     group.finish();
 }
 
-// ── BitReader: read_bits
-// ──────────────────────────────────────────────────────
-
 fn bench_read_bits_stream(c: &mut Criterion) {
     let mut group = c.benchmark_group("bitio/read_stream");
 
@@ -133,9 +127,6 @@ fn bench_read_bits_stream(c: &mut Criterion) {
 
     group.finish();
 }
-
-// ── delta_of_delta_i64
-// ────────────────────────────────────────────────────────
 
 /// Скорость вычисления одного DoD — ключевая операция в горячем пути encoder.
 fn bench_delta_of_delta(c: &mut Criterion) {
@@ -178,9 +169,6 @@ fn bench_delta_of_delta(c: &mut Criterion) {
     group.finish();
 }
 
-// ── zigzag encode/decode
-// ──────────────────────────────────────────────────────
-
 fn bench_zigzag(c: &mut Criterion) {
     let mut group = c.benchmark_group("primitives/zigzag");
     group.throughput(Throughput::Elements(1));
@@ -219,8 +207,6 @@ fn bench_zigzag(c: &mut Criterion) {
     group.finish();
 }
 
-// ── write_bits_signed (zigzag + write) ───────────────────────────────────────
-
 fn bench_write_bits_signed(c: &mut Criterion) {
     let mut group = c.benchmark_group("bitio/write_bits_signed");
     group.throughput(Throughput::Elements(1));
@@ -247,9 +233,6 @@ fn bench_write_bits_signed(c: &mut Criterion) {
 
     group.finish();
 }
-
-// ── регистрация
-// ───────────────────────────────────────────────────────────────
 
 criterion_group!(
     bitio_benches,

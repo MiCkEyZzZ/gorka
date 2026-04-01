@@ -1,9 +1,9 @@
 # Gorka Benchmarks — Baseline
 
-Measured on: Intel Core i5-9400F (6C/6T, up to 4.1 GHz), x86_64
-OS: Linux 6.1 (Debian)
-Date: 2026-04-01
-Rust: rustc 1.95.0-nightly (release build, criterion)
+- Measured on: Intel Core i5-9400F (6C/6T, up to 4.1 GHz), x86_64
+- OS: Linux 6.1 (Debian)
+- Date: 2026-04-01
+- Rust: rustc 1.95.0-nightly (release build, criterion)
 
 ---
 
