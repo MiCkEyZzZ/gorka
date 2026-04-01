@@ -2,6 +2,17 @@
 
 All notable changes to **Gorka** are documented in this file.
 
+## [Unreleased] — 0000-00-00
+
+### Added
+
+- **docs**
+  - добавил жокументацию по encoding
+
+### Changed
+
+### Notes
+
 ## [0.1.0] — 2026-03-31
 
 ### Added
