@@ -20,7 +20,6 @@ std = []
 alloc = []
 
 [dependencies]
-ed25519-dalek = { version = "2.2.0", default-features = false, features = ["rand_core"] }
 rand = "0.8"
 
 [dev-dependencies]
