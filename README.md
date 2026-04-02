@@ -81,6 +81,7 @@ with Cargo:
 
 ```zsh
 cargo run --example encode_decode
+cargo run --example basic_encode
 # → Basic encode/decode test
 
 cargo run --example edge_cases
