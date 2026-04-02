@@ -6,6 +6,17 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **io**
+  - добавлен модуль `io/mod.rs` для работы с chunk-последовательностями
+    - `write_framed` / `read_framed` — запись и чтение length-prefixed фреймов
+    - `ChunkWriter` — буферизованная запись последовательности chunk
+    - `ChunkReader` — итератор по chunk-фреймам без копирования данных
+    - поддержка проверки размера payload (`MAX_FRAME_PAYLOAD = 64 MiB`)
+    - корректная обработка ошибок: `UnexpectedEof`, `ValueTooLarge`
+    - roundtrip тесты write → read, multi-chunk последовательности
+    - интеграция с `GlonassEncoder` / `GlonassDecoder`
+  - модуль компилируется только при включённой `std`-фиче
+
 - **docs**
   - добавил жокументацию по encoding
 
