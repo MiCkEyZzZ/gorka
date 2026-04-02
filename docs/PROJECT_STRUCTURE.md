@@ -21,6 +21,7 @@ gorka
 │   ├── BENCHMARKS.md
 │   ├── ENCODING.md
 │   ├── FORMAT.md
+│   ├── SECURITY_MODEL.md
 │   ├── DECODER.md
 │   ├── PROJECT_STRUCTURE.md
 │   └── TESTING.md
