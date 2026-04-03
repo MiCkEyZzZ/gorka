@@ -4,6 +4,8 @@ pub struct MilliHz(pub i32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Millimeter(pub i64);
 
+// Временно добавлены вспомогательные методы для newtype.
+// TODO: заменить на более идиоматичный API (конверсии или trait-методы)
 impl Millimeter {
     pub fn new(v: i64) -> Self {
         Self(v)
