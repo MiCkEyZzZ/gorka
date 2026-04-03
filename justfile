@@ -2,7 +2,7 @@
 
 # Форматирование Rust-кода
 fmt:
-    cargo fmt
+    cargo fmt --all
 
 # Форматирование всех Cargo.toml через Taplo
 fmt-toml:
@@ -13,35 +13,37 @@ fmt-all: fmt fmt-toml
 
 # Проверка форматирования без изменения файлов (CI-safe)
 fmt-check:
-    cargo fmt -- --check
+    cargo fmt --all -- --check
     taplo fmt --check
 
 # Clippy: все таргеты и фичи, warnings -> errors
 lint:
     cargo clippy --all-targets --all-features -- -D warnings
 
-# Только юнит-тесты (lib), без интеграционных и property
-test-fast:
-    cargo test --lib
+# Проверка deny.toml (локально нужно через '--' перед аргументами)
+deny:
+    cargo deny check all
 
-# Property-тесты: bit_property.rs
-test-prop-bit:
-    cargo test --test bit_property
+# Тесты через cargo test
+test:
+    cargo test --all-features
 
-# Property-тесты: codec_property.rs
-test-prop-codec:
-    cargo test --test codec_property
-
-# Property-тесты: оба файла подряд
-test-prop: test-prop-bit test-prop-codec
-
-# Интеграционные тесты (tests/ файлы)
-test-integration:
-    cargo test --tests
-
-# Полный запуск через nextest (рекомендуется для CI)
+# Тесты через nextest
 test-next:
-    cargo nextest run
+    cargo nextest run --all-features
+
+# Проверка no_std под embedded target
+no-std:
+    rustup target add thumbv7em-none-eabihf
+    cargo check --target thumbv7em-none-eabihf --no-default-features --features alloc --lib
+
+# Документация
+doc:
+    RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+
+# MSRV check
+msrv:
+    cargo +1.75.0 check --all-features
 
 # Бенчи
 bench:
@@ -51,8 +53,18 @@ bench:
 clean:
     cargo clean
 
-# CI: проверяет форматирование, линтер, тесты — файлы не меняет
-check: fmt-check lint test-next
+# Локальный аналог CI перед пушем
+
+# Сначала форматируем Rust + TOML, чтобы fmt-check точно проходил
+ci-local:
+    just fmt-all
+    just fmt-check
+    just lint
+    just deny
+    just test
+    just test-next
+    just no-std
+    just doc
 
 # Dev shortcut: формат + все проверки
-dev: fmt-all check
+dev: fmt-all ci-local
