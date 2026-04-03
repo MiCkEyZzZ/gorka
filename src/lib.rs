@@ -1,4 +1,62 @@
-//! Gorka — GNSS time-series compression codec.
+//! Gorka — GNSS Time-Series Compression Codec
+//!
+//! Gorka is a library for compressing and decompressing GNSS
+//! (Global Navigation Satellite System) time series data.
+//! Optimized for GLONASS, with planned support for GPS, Galileo, and BeiDou.
+//!
+//! ## Architecture
+//!
+//! ```text
+//! GlonassSample[]
+//!       │
+//!       ▼
+//! GlonassEncoder::encode_chunk() -> Vec<u8> (chunk)
+//!       │
+//!       ▼
+//! ChunkWriter -> file / storage
+//! ChunkReader -> &[u8] (chunk)
+//!       │
+//!       ▼
+//! GlonassDecoder::decode_chunk() -> Vec<GlonassSample>
+//! ```
+//!
+//! ## Quick Start
+//!
+//! ```rust
+//! use gorka::{
+//!     codec::{GlonassDecoder, GlonassEncoder},
+//!     GlonassSample, MilliHz, Millimeter,
+//! };
+//!
+//! let samples = vec![GlonassSample {
+//!     timestamp_ms: 1_700_000_000_000,
+//!     slot: 1,
+//!     cn0_dbhz: 42,
+//!     pseudorange_mm: Millimeter::new(21_500_000_000),
+//!     doppler_millihz: MilliHz::new(1_200_500),
+//!     carrier_phase_cycles: None,
+//! }];
+//!
+//! let compressed = GlonassEncoder::encode_chunk(&samples).unwrap();
+//! let decoded = GlonassDecoder::decode_chunk(&compressed).unwrap();
+//!
+//! assert_eq!(samples, decoded);
+//! ```
+//!
+//! ## no_std Support
+//!
+//! The codec works without the standard library (only requires `alloc`):
+//!
+//! ```toml
+//! gorka = { version = "0.1", default-features = false, features = ["alloc"] }
+//! ```
+//!
+//! The [`io`] module requires `std` and is only available when `feature =
+//! "std"`.
+//!
+//! ## Data Format
+//!
+//! For a detailed specification of the chunk format, see `docs/FORMAT.md`.
 //!
 //! See README for usage examples.
 
@@ -11,6 +69,10 @@ pub mod codec;
 pub mod error;
 pub mod gnss;
 
+/// Stream I/O for chunk sequences.
+///
+/// Available only with the `std` feature.
+/// Contains [`io::ChunkWriter`] and [`io::ChunkReader`].
 #[cfg(feature = "std")]
 pub mod io;
 
