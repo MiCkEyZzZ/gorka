@@ -8,6 +8,8 @@ All notable changes to **Gorka** are documented in this file.
 
 - **docs**
   - обновил `README.md` файл
+  - добавил `CODE_OF_CONDUCT.md` файл
+  - добавил `SECURITY.md` файл
   - улучшил документацию в `lib.rs`
 
 - **examples**
