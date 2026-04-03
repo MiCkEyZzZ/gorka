@@ -58,7 +58,7 @@ gorka = "0.1"
 
 Minimal example:
 
-````rust
+```rust
 use gorka::{
     codec::{GlonassEncoder, GlonassDecoder},
     GlonassSample, MilliHz, Millimeter,
@@ -228,9 +228,9 @@ Results depend on signal characteristics. See [`docs/FORMAT.md`](docs/FORMAT.md)
 
 Planned (#GORKA-11):
 
-* GPS (PRN 1–32, L1/L2/L5)
-* Galileo (E1/E5)
-* BeiDou (BDS-2/BDS-3)
+- GPS (PRN 1–32, L1/L2/L5)
+- Galileo (E1/E5)
+- BeiDou (BDS-2/BDS-3)
 
 ## no_std Mode
 
@@ -243,15 +243,15 @@ gorka = { version = "0.1", default-features = false, features = ["alloc"] }
 
 Available in `no_std + alloc`:
 
-* `GlonassEncoder::encode_chunk` / `GlonassDecoder::decode_chunk`
-* `BitReader`, `BitWriter`
-* `encode_i64`, `decode_i64`, `delta_of_delta_i64`
-* `GnssFrame`, `GlonassSample`
+- `GlonassEncoder::encode_chunk` / `GlonassDecoder::decode_chunk`
+- `BitReader`, `BitWriter`
+- `encode_i64`, `decode_i64`, `delta_of_delta_i64`
+- `GnssFrame`, `GlonassSample`
 
 Requires `std`:
 
-* `gorka::io` (ChunkWriter, ChunkReader)
-* `impl std::error::Error for GorkaError`
+- `gorka::io` (ChunkWriter, ChunkReader)
+- `impl std::error::Error for GorkaError`
 
 ## Testing
 
@@ -274,8 +274,8 @@ cargo run --example streaming
 cargo run --example no_std_demo
 ```
 
-* Format specification: [`docs/FORMAT.md`](docs/FORMAT.md)
-* Project structure: [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md)
+- Format specification: [`docs/FORMAT.md`](docs/FORMAT.md)
+- Project structure: [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md)
 
 ## Platform support
 
@@ -294,4 +294,3 @@ Planned: GPS/Galileo/BeiDou, streaming API, entropy coding, SIMD optimizations.
 ## License
 
 MIT OR Apache-2.0
-````
