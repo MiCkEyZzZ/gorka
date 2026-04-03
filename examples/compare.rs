@@ -12,7 +12,7 @@ fn make_data(n: usize) -> Vec<GlonassSample> {
             slot: 1,
             cn0_dbhz: 40 + (i % 5) as u8,
             pseudorange_mm: Millimeter::new(21_000_000_000 + i as i64 * 200),
-            doppler_millihz: MilliHz::new(1000_000 - i as i32 * 50),
+            doppler_millihz: MilliHz::new(1_000_000 - i as i32 * 50),
             carrier_phase_cycles: Some(i as i64 * 1_000_000),
         })
         .collect()
@@ -50,7 +50,7 @@ fn main() {
     // делаем простой бинарный dump (как будто "raw stream")
     for s in &samples {
         gz.write_all(&s.timestamp_ms.to_le_bytes()).unwrap();
-        gz.write_all(&(s.slot as i8).to_le_bytes()).unwrap();
+        gz.write_all(&s.slot.to_le_bytes()).unwrap();
         gz.write_all(&[s.cn0_dbhz]).unwrap();
         gz.write_all(&s.pseudorange_mm.as_i64().to_le_bytes())
             .unwrap();

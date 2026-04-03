@@ -39,3 +39,13 @@ harness = false
 name = "bitio_bench"
 path = "benches/bitio_bench.rs"
 harness = false
+
+[[example]]
+name = "streaming"
+path = "examples/streaming.rs"
+required-features = ["std"]
+
+[[example]]
+name = "compare"
+path = "examples/compare.rs"
+required-features = ["std"]
