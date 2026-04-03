@@ -6,6 +6,19 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **examples**
+  - добавлен пример `basic_encode.rs` для проверки базового `encode` и `decode`
+    с `GlonassSample`
+  - добавлен пример `no_std_demo.rs` для использования `encode`/`decode` без
+    стандартной библиотеки
+  - добавлен пример `streaming.rs` для записи и чтения chunk-последовательностей
+  - добавлен пример `compare.rs` для сравнения сжатия Gorka vs raw vs gzip
+
+- **gnss / types**
+  - добавлены методы-геттеры для удобного извлечения внутренних значений:
+    - `Millimeter::as_i64()`
+    - `MilliHz::as_i32()`
+
 - **io**
   - добавлен модуль `io/mod.rs` для работы с chunk-последовательностями
     - `write_framed` / `read_framed` — запись и чтение length-prefixed фреймов
