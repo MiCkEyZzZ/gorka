@@ -80,7 +80,6 @@ Gorka ships with working examples in the `examples/` folder. You can run them
 with Cargo:
 
 ```zsh
-cargo run --example encode_decode
 cargo run --example basic_encode
 # → Basic encode/decode test
 
