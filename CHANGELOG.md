@@ -6,6 +6,10 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **.github**
+  - добавил GitHub Actions workflow: `ci.yml`
+  - добавил GitHub Actions workflow: `publish.yml`
+
 - **docs**
   - обновил `README.md` файл
   - добавил `CODE_OF_CONDUCT.md` файл
