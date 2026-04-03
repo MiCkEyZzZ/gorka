@@ -6,6 +6,10 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **docs**
+  - обновил `README.md` файл
+  - улучшил документацию в `lib.rs`
+
 - **examples**
   - добавлен пример `basic_encode.rs` для проверки базового `encode` и `decode`
     с `GlonassSample`

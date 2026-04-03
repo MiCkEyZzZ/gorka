@@ -1,127 +1,113 @@
 # Contributing to Gorka
 
-Спасибо за интерес к проекту! Gorka — библиотека для сжатия GNSS
-телеметрии. Любые вклады приветствуются: исправления, новые функции,
-документация, тесты.
+Thanks for your interest in the project! Gorka is a library for GNSS telemetry compression.
+All contributions are welcome: bug fixes, new features, documentation, and tests.
 
----
+## Contents
 
-## Содержание
+- [Quick Start for Contributors](#quick-start-for-contributors)
+- [Project Structure](#project-structure)
+- [Code Style](#code-style)
+- [Tests](#tests)
+- [How to Add Support for a New Constellation](#how-to-add-support-for-a-new-constellation)
+- [Working with Issues](#working-with-issues)
+- [Pull Request Checklist](#pull-request-checklist)
 
-- [Быстрый старт для контрибьютора](#быстрый-старт-для-контрибьютора)
-- [Структура проекта](#структура-проекта)
-- [Стиль кода](#стиль-кода)
-- [Тесты](#тесты)
-- [Как добавить поддержку нового созвездия](#как-добавить-поддержку-нового-созвездия)
-- [Работа с issues](#работа-с-issues)
-- [Pull Request checklist](#pull-request-checklist)
-
----
-
-## Быстрый старт для контрибьютора
+## Quick Start for Contributors
 
 ```zsh
-# Клонировать
+# Clone the repository
 git clone https://github.com/MiCkEyZzZ/gorka
 cd gorka
 
-# Установить инструменты
+# Install tools
 cargo install cargo-nextest taplo-cli
 
-# Проверить, что всё работает
-just check
-# или вручную:
+# Check that everything works
+just dev
+# or run manually:
 cargo fmt -- --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo nextest run
 ```
 
-Все команды разработки:
+All development commands:
 
 ```zsh
-just fmt-all   # форматировать Rust + TOML
+just fmt-all   # format Rust + TOML
 just lint      # clippy
-just test-next # все тесты через nextest
-just bench     # бенчмарки
-just dev       # fmt + check (рекомендуется перед коммитом)
+just test-next # run all tests through nextest
+just bench     # benchmarks
+just dev       # fmt + check (recommended before committing)
 ```
 
----
-
-## Структура проекта
+## Project Structure
 
 ```text
 src/
 ├── bits/          — BitReader, BitWriter (bit-level IO)
 ├── codec/
-│   ├── encoder.rs — GlonassEncoder (основной кодировщик)
-│   ├── decoder.rs — GlonassDecoder (зеркало encoder)
-│   ├── delta.rs   — delta / delta-of-delta вычисления
+│   ├── encoder.rs — GlonassEncoder (main encoder)
+│   ├── decoder.rs — GlonassDecoder (encoder mirror)
+│   ├── delta.rs   — delta / delta-of-delta calculations
 │   ├── zigzag.rs  — encode_i64 / decode_i64
 │   └── format/    — FormatVersion, CHUNK_MAGIC, header layout
 ├── gnss/
 │   ├── types.rs   — Millimeter, MilliHz (newtype wrappers)
-│   ├── glonass.rs — GlonassSample, валидация, вспомогательные методы
-│   ├── frame.rs   — GnssFrame (буфер эпохи, фиксированный массив)
+│   ├── glonass.rs — GlonassSample, validation, helper methods
+│   ├── frame.rs   — GnssFrame (epoch buffer, fixed-size array)
 │   └── mod.rs
 ├── io/mod.rs      — ChunkWriter, ChunkReader (std only)
 └── error.rs       — GorkaError
 
-tests/             — интеграционные тесты
+tests/             — integration tests
 benches/           — Criterion benchmarks
-docs/              — спецификации и документация
-examples/          — рабочие примеры
+docs/              — specifications and documentation
+examples/          — working examples
 ```
 
-Ключевой инвариант: **encoder и decoder должны быть зеркальными**.
-Любое изменение в `encode_delta` требует симметричного изменения в
-`decode_delta`, и наоборот.
+Key invariant: **the encoder and decoder must be symmetric**.
+Any change in `encode_delta` requires a matching change in `decode_delta`, and
+vice versa.
 
----
+## Code Style
 
-## Стиль кода
+The project follows standard Rust style with a few additional rules:
 
-Проект следует стандартному Rust-стилю с некоторыми уточнениями:
+- Formatting through `cargo fmt` (settings in `rustfmt.toml`)
+- Clippy must pass with no warnings (`-D warnings`)
+- Documentation comments should be in **English** for public API items (`///`)
+- Avoid `unwrap()` in production code except in places guarded by `debug_assert!`
+- `#[inline(always)]` only for hot paths in bit-IO
+- Comments for bucket schemes are required: `// '10' + 7b zigzag`
 
-- Форматирование через `cargo fmt` (настройки в `rustfmt.toml`)
-- Clippy без предупреждений (`-D warnings`)
-- Документационные комментарии на **русском** для внутренней документации,
-  на **английском** для публичного API (doc-комментарии `///`)
-- Никаких `unwrap()` в production-коде кроме мест с `debug_assert!`
-- `#[inline(always)]` только для горячих path в bit-IO
-- Комментарии к bucket-схемам обязательны: `// '10' + 7b zigzag`
+## Tests
 
----
+Every new function should have:
 
-## Тесты
+1. **Unit tests** inside a `#[cfg(test)]` block in the module — basic correctness
+2. **Roundtrip tests** — encode → decode must return identical data
+3. **Edge-case tests** — boundary values (empty chunk, max slot, None phase)
+4. **Property tests** in `tests/` using `proptest` — random valid data
 
-Каждая новая функция должна иметь:
-
-1. **Unit-тесты** в `#[cfg(test)]` блоке внутри модуля — базовая корректность
-2. **Roundtrip тест** — encode → decode должен возвращать идентичные данные
-3. **Edge-case тесты** — граничные значения (пустой chunk, максимальный слот, None-фаза)
-4. **Property тест** в `tests/` через `proptest` — случайные валидные данные
-
-Правило: **если добавляешь bucket в encoder — добавь тест для этого bucket**.
+Rule: **if you add a bucket in the encoder, add a test for that bucket**.
 
 ```zsh
-# Запустить конкретный тест
+# Run a specific test
 cargo test test_roundtrip_carrier_phase_reacquired
 
-# С выводом println!
+# Show println! output
 cargo test --test compression_ratio -- --nocapture
 ```
 
----
+## How to Add Support for a New Constellation
 
-## Как добавить поддержку нового созвездия
+This is the main extension point of Gorka. Below is a step-by-step plan for adding,
+for example, **GPS**.
 
-Это основная точка расширения Gorka. Ниже пошаговый план добавления,
-например, **GPS**.
+### Step 1: Define the Data Type
 
-### Шаг 1: Определить тип данных
-
-Создайте `src/gnss/gps.rs`:
+Create `src/gnss/gps.rs`:
 
 ```rust
 use crate::{error::GorkaError, MilliHz, Millimeter};
@@ -129,7 +115,7 @@ use crate::{error::GorkaError, MilliHz, Millimeter};
 /// One GPS L1 C/A observation.
 ///
 /// PRN = Pseudo-Random Noise code number, identifies the satellite.
-/// GPS L1 C/A: 1575.42 MHz, всем спутникам одна частота (CDMA).
+/// GPS L1 C/A: 1575.42 MHz, all satellites share the same frequency (CDMA).
 #[derive(Debug, Clone, PartialEq)]
 pub struct GpsSample {
     pub timestamp_ms:         u64,
@@ -154,39 +140,39 @@ impl GpsSample {
 }
 ```
 
-### Шаг 2: Добавить в gnss/mod.rs
+### Step 2: Add It to `gnss/mod.rs`
 
 ```rust
 pub mod gps;
 pub use gps::GpsSample;
 ```
 
-### Шаг 3: Реализовать encoder
+### Step 3: Implement the Encoder
 
-Создайте `src/codec/gps_encoder.rs`. Скопируйте структуру из `encoder.rs`
-и адаптируйте:
+Create `src/codec/gps_encoder.rs`. Copy the structure from `encoder.rs`
+and adapt it:
 
-- `slot` → `prn` (PRN 1..32, 5 бит вместо 4)
-- Удалите per-slot FDMA state (GPS использует CDMA — одна частота)
-- Доплер: дельта без FDMA-коррекции (все спутники на одной несущей)
+- `slot` → `prn` (PRN 1..32, 5 bits instead of 4)
+- Remove per-slot FDMA state (GPS uses CDMA — one frequency)
+- Doppler: delta without FDMA correction (all satellites on the same carrier)
 
 ```rust
 pub struct GpsEncoder;
 
 impl GpsEncoder {
     pub fn encode_chunk(samples: &[GpsSample]) -> Result<Vec<u8>, GorkaError> {
-        // Аналогично GlonassEncoder, но:
-        // - state.last_prn вместо last_slot
-        // - last_doppler: Option<i32> (один, не массив)
-        // - verbatim: 1B prn вместо 1B slot
+        // Similar to GlonassEncoder, but:
+        // - state.last_prn instead of last_slot
+        // - last_doppler: Option<i32> (single value, not an array)
+        // - verbatim: 1B prn instead of 1B slot
         todo!()
     }
 }
 ```
 
-### Шаг 4: Реализовать decoder
+### Step 4: Implement the Decoder
 
-`src/codec/gps_decoder.rs` — точное зеркало encoder. Добавьте тест:
+`src/codec/gps_decoder.rs` — exact mirror of the encoder. Add a test:
 
 ```rust
 #[test]
@@ -201,61 +187,57 @@ fn test_gps_roundtrip() {
 }
 ```
 
-### Шаг 5: Обновить публичный API
+### Step 5: Update the Public API
 
-В `src/lib.rs`:
+In `src/lib.rs`:
 
 ```rust
 pub use codec::{GpsDecoder, GpsEncoder, /* ... */};
 pub use gnss::{GpsSample, /* ... */};
 ```
 
-### Шаг 6: Обновить FORMAT.md
+### Step 6: Update `FORMAT.md`
 
-Добавьте раздел в `docs/FORMAT.md`:
+Add a section to `docs/FORMAT.md`:
 
 ```markdown
 ## 9. GPS chunk format (V2)
 
-Chunk версии V2 добавляет...
+Chunk version V2 adds...
 ```
 
-Изменение формата требует нового `FormatVersion::V2`.
+A format change requires a new `FormatVersion::V2`.
 
-### Шаг 7: Обновить тесты и бенчмарки
+### Step 7: Update Tests and Benchmarks
 
-- `tests/gps_roundtrip.rs` — полные roundtrip тесты
-- `benches/encode_bench.rs` — добавьте `bench_encode_gps_smooth`
-- `tests/compression_ratio.rs` — добавьте `compression_ratio_gps_smooth`
+- `tests/gps_roundtrip.rs` — full roundtrip tests
+- `benches/encode_bench.rs` — add `bench_encode_gps_smooth`
+- `tests/compression_ratio.rs` — add `compression_ratio_gps_smooth`
 
-### Шаг 8: Пример
+### Step 8: Add an Example
 
-`examples/multi_gnss.rs` — покажите совместное использование GLONASS и GPS.
+`examples/multi_gnss.rs` — show joint usage of GLONASS and GPS.
 
-### Ключевые правила при добавлении созвездий
+### Key Rules When Adding Constellations
 
-- **Один тип — один encoder/decoder**. Не делайте общий "GNSS encoder".
-- **Версионирование**: изменение wire format = новый `FormatVersion`.
-- **Fixed-point везде**: никаких `f32`/`f64` в codec-пути.
-- **Тест на симметрию**: любые `encode_X` / `decode_X` покрыты roundtrip.
-- **Per-сигнал state**: если сигнал использует FDMA (ГЛОНАСС) → массив
-  состояний; если CDMA (GPS, Galileo) → одно состояние.
+- **One type — one encoder/decoder**. Do not create a generic "GNSS encoder".
+- **Versioning**: any wire format change requires a new `FormatVersion`.
+- **Fixed-point everywhere**: no `f32`/`f64` in the codec path.
+- **Symmetry tests**: every `encode_X` / `decode_X` pair must have roundtrip coverage.
+- **Per-signal state**: if a signal uses FDMA (GLONASS), use an array of states;
+  if it uses CDMA (GPS, Galileo), use a single state.
 
----
+## Working with Issues
 
-## Работа с issues
+- **Bug**: provide a minimal reproduction, and describe expected vs actual behavior
+- **Feature**: open an issue with the `enhancement` label before implementing
+- **Breaking change**: discuss it in an issue; it requires a major version bump
 
-- **Bug**: воспроизведите минимальный пример, укажите ожидаемое и реальное поведение
-- **Feature**: откройте issue с меткой `enhancement` перед реализацией
-- **Breaking change**: обсудите в issue, требует major версии
+## Pull Request Checklist
 
----
-
-## Pull Request checklist
-
-- [ ] `just fmt-all` — код отформатирован
-- [ ] `just lint` — clippy без предупреждений
-- [ ] `just test-next` — все тесты зелёные
-- [ ] Новые публичные API имеют doc-комментарии (`///`)
-- [ ] `CHANGELOG.md` обновлён
-- [ ] Если изменён wire format — обновлён `docs/FORMAT.md` и версия
+- [ ] `just fmt-all` — code is formatted
+- [ ] `just lint` — clippy passes with no warnings
+- [ ] `just test-next` — all tests are green
+- [ ] New public APIs have doc comments (`///`)
+- [ ] `CHANGELOG.md` is updated
+- [ ] If the wire format changed, `docs/FORMAT.md` and the version are updated
