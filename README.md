@@ -27,6 +27,7 @@ other constellations including GPS, Galileo, and BeiDou.
 - [Documentation](#documentation)
 - [Project Status](#project-status)
 - [License](#license)
+- [Code of Conduct](#code-of-conduct)
 
 ## Why Gorka?
 
@@ -215,7 +216,9 @@ Typical compression ratios (release build):
 
 Results depend on signal characteristics. See [`docs/FORMAT.md`](docs/FORMAT.md).
 
-## Supported Data (GLONASS)
+## Supported Data
+
+for GLONASS
 
 | Field                  | Type   | Precision   | Range                       |
 | ---------------------- | ------ | ----------- | --------------------------- |
@@ -290,6 +293,11 @@ Completed for v0.1.0: bit-IO, encoder, decoder, GnssFrame, IO layer, tests, benc
 FORMAT.md.
 
 Planned: GPS/Galileo/BeiDou, streaming API, entropy coding, SIMD optimizations.
+
+## Code of Conduct
+
+This project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md). By participating,
+you are expected to uphold this code.
 
 ## License
 
