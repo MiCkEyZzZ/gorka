@@ -100,6 +100,8 @@ impl Default for BitWriter {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
     use super::*;
 
     #[test]

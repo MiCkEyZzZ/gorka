@@ -105,6 +105,7 @@ impl std::error::Error for GorkaError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::alloc::string::ToString;
 
     #[test]
     fn display_invalid_pseudorange() {

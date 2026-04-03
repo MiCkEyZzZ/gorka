@@ -408,6 +408,8 @@ fn idx_to_slot(idx: u64) -> i8 {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
     use super::*;
     use crate::codec::GlonassEncoder;
 

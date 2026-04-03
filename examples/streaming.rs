@@ -28,6 +28,7 @@ fn make_track(
         .collect()
 }
 
+#[cfg(feature = "std")]
 fn main() -> std::io::Result<()> {
     let path = Path::new("/tmp/gorka_stream_demo.bin");
 

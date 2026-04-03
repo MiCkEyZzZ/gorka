@@ -12,11 +12,11 @@ pub struct GlonassSample {
     pub timestamp_ms: u64,
     /// GLONASS frequency slot: k ∈ [-7, +6]
     pub slot: i8,
-    /// Carrier-to-noise density [dBHz], typical range 30-50
+    /// Carrier-to-noise density (dB-Hz), typical range 30-50
     pub cn0_dbhz: u8,
-    /// Pseudorange [m], typical range 20_000_000-26_000_000
+    /// Pseudorange (m), typical range 20_000_000-26_000_000
     pub pseudorange_mm: Millimeter,
-    /// Dopler shift [Hz], typical range ±4000 (slot-dependent)
+    /// Doppler shift (Hz), typical range ±4000 (slot-dependent)
     pub doppler_millihz: MilliHz,
     /// Accumulated carrier phase in units of 2⁻³² cycles.
     pub carrier_phase_cycles: Option<i64>,
