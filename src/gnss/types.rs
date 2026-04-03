@@ -8,11 +8,19 @@ impl Millimeter {
     pub fn new(v: i64) -> Self {
         Self(v)
     }
+
+    pub fn as_i64(&self) -> i64 {
+        self.0
+    }
 }
 
 impl MilliHz {
     pub fn new(v: i32) -> Self {
         Self(v)
+    }
+
+    pub fn as_i32(&self) -> i32 {
+        self.0
     }
 
     pub fn abs(self) -> Self {
