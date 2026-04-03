@@ -2,7 +2,7 @@
 
 All notable changes to **Gorka** are documented in this file.
 
-## [Unreleased] — 0000-00-00
+## [0.2.0] — 2026-03-03
 
 ### Added
 
