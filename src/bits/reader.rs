@@ -1,4 +1,4 @@
-use crate::{alloc::string::ToString, decode_i64, GorkaError};
+use crate::{decode_i64, GorkaError};
 
 pub struct BitReader<'a> {
     data: &'a [u8],
