@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+# Отменяем предыдущий запуск при новом push в ту же ветку
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── fmt ─────────────────────────────────────────────────────────────────────
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  # ── clippy ───────────────────────────────────────────────────────────────────
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  # ── deny (лицензии, уязвимости, дублирующиеся зависимости) ──────────────────
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          # deny.toml уже есть в репозитории
+          arguments: --all-features
+          command: check
+          command-arguments: ""
+
+  # ── tests (matrix: OS × features) ────────────────────────────────────────────
+  test:
+    name: Test / ${{ matrix.os }} / ${{ matrix.features }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        features: ["--all-features", "--no-default-features --features alloc"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}-${{ matrix.features }}
+
+      - name: Run tests
+        run: cargo test ${{ matrix.features }}
+
+  # ── nextest (ubuntu only — быстрее с nextest) ─────────────────────────────────
+  nextest:
+    name: Nextest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
+      - name: Run tests via nextest
+        run: cargo nextest run --all-features
+
+  # ── no_std (embedded target: ARM Cortex-M4) ────────────────────────────────────
+  #
+  # Проверяет что кодек компилируется без std на embedded target.
+  # Используем thumbv7em-none-eabihf (ARM Cortex-M4 с FPU).
+  #
+  # Модуль gorka::io исключён — он явно требует std.
+  # Тестируем только компиляцию lib (cargo check), т.к. запуск невозможен.
+  no-std:
+    name: no_std / thumbv7em-none-eabihf
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain + embedded target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabihf
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check no_std + alloc (embedded target)
+        run: >
+          cargo check
+          --target thumbv7em-none-eabihf
+          --no-default-features
+          --features alloc
+          --lib
+
+  # ── doc (проверяем что cargo doc не выдаёт ошибок) ───────────────────────────
+  doc:
+    name: Documentation
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build docs
+        run: cargo doc --no-deps --all-features
+
+  # ── MSRV (минимальная поддерживаемая версия Rust) ────────────────────────────
+  #
+  # Gorka поддерживает Rust 1.75+ (edition 2021, стабильный since 2023-12).
+  # Проверяем что lib и тесты компилируются на MSRV.
+  msrv:
+    name: MSRV (Rust 1.75)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust 1.75
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.75"
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check MSRV
+        run: cargo check --all-features
