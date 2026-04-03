@@ -235,9 +235,14 @@ A format change requires a new `FormatVersion::V2`.
 
 ## Pull Request Checklist
 
-- [ ] `just fmt-all` — code is formatted
-- [ ] `just lint` — clippy passes with no warnings
-- [ ] `just test-next` — all tests are green
-- [ ] New public APIs have doc comments (`///`)
-- [ ] `CHANGELOG.md` is updated
-- [ ] If the wire format changed, `docs/FORMAT.md` and the version are updated
+- **Scope**: what area of the codebase this touches (e.g. `gorka`).
+- **Summary**: brief description of the change.
+- **Testing**: how did you verify it works? (unit tests, manual steps).
+- **Checklist**:
+  - [ ] `cargo fmt --check`
+  - [ ] `taplo format`
+  - [ ] `cargo clippy -- -D warnings`
+  - [ ] `cargo test`
+  - [ ] New tests added / existing tests updated
+  - [ ] Added the necessary rustdoc comments.
+  - [ ] Changelog updated if applicable
