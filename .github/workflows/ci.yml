@@ -36,19 +36,18 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo-deny
+      # Убираем "install" — просто запускаем cargo deny
+      - name: Run cargo-deny
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          command: install
+          command: check
+          arguments: --all-features --log-level warn
 
       - name: Run fmt
         run: cargo fmt --all -- --check
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Run cargo-deny
-        run: cargo deny check --all-features
 
       - name: Build docs
         env:

@@ -1,111 +1,101 @@
-name: CI
+name: "Semantic Pull Request"
 
 on:
-  push:
-    branches: [master]
-    paths:
-      - "src/**"
-      - "Cargo.toml"
-  pull_request:
-    branches: [master]
-    paths:
-      - "src/**"
-      - "Cargo.toml"
-  schedule:
-    - cron: "0 0 * * 1" # MSRV раз в неделю
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
 
-env:
-  CARGO_TERM_COLOR: always
-  RUST_BACKTRACE: 1
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
 
 jobs:
-  checks:
-    name: Checks (fmt, clippy, deny, doc)
+  check:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    timeout-minutes: 10
 
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+    steps:
+      - name: Checkout base branch (trusted)
+        uses: actions/checkout@v4
         with:
-          components: rustfmt, clippy
+          ref: ${{ github.event.pull_request.base.ref }}
+          fetch-depth: 1
 
-      - uses: Swatinem/rust-cache@v2
-
-      # Убираем "install" — просто запускаем cargo deny
-      - name: Run cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2
+      - name: Validate PR title follows semantic format
+        uses: actions/github-script@v7
         with:
-          command: check
-          arguments: --all-features --log-level warn
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const prNumber = pr?.number;
+            const title = (pr?.title || "").trim();
+            const isDraft = !!pr?.draft;
 
-      - name: Run fmt
-        run: cargo fmt --all -- --check
+            if (isDraft) {
+              core.info("PR is a draft — skipping semantic check.");
+              return;
+            }
 
-      - name: Run clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+            if (!prNumber) {
+              throw new Error("No pull request information available in context.");
+            }
 
-      - name: Build docs
-        env:
-          RUSTDOCFLAGS: -D warnings
-        run: cargo doc --no-deps --all-features
+            /**
+             * Semantic pattern:
+             * type(scope?): description
+             *
+             * Examples scope for Gorka:
+             * bits, encoding, gnss, io, error, tests, ci, docs
+             */
+            const re = /^(feat|fix|docs|chore|perf|refactor|test|ci|build|style)(\([^)]+\))?:\s.+/i;
 
-  test:
-    name: Tests (nextest)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+            if (!title) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: [
+                  ":warning: PR title is empty.",
+                  "",
+                  "**Expected format:** `type(scope?): short description`",
+                  "",
+                  "**Example:**",
+                  "`feat(bits): add variable-length encoding`"
+                ].join("\n")
+              });
 
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+              throw new Error("PR title is empty");
+            }
 
-      - uses: Swatinem/rust-cache@v2
+            if (!re.test(title)) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: [
+                  ":x: PR title does not follow the semantic format.",
+                  "",
+                  "**Expected:** `type(scope?): short description`",
+                  "",
+                  "**Allowed types:**",
+                  "`feat`, `fix`, `docs`, `chore`, `perf`, `refactor`, `test`, `ci`, `build`, `style`",
+                  "",
+                  "**Suggested scopes for Gorka:**",
+                  "`bits`, `encoding`, `gnss`, `io`, `error`, `tests`, `ci`, `docs`",
+                  "",
+                  "**Examples:**",
+                  "- `feat(bits): add bit packing optimization`",
+                  "- `fix(gnss): correct glonass frame parsing`",
+                  "- `perf(encoding): reduce allocations in delta encoder`",
+                  "",
+                  "Please update the PR title."
+                ].join("\n")
+              });
 
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
+              throw new Error("PR title does not match semantic format");
+            }
 
-      - name: Run tests
-        run: cargo nextest run --all-features
-
-  no-std:
-    name: no_std / thumbv7em-none-eabihf
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Add embedded target
-        run: rustup target add thumbv7em-none-eabihf
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Check no_std + alloc
-        run: >
-          cargo check
-          --target thumbv7em-none-eabihf
-          --no-default-features
-          --features alloc
-          --lib
-
-  msrv:
-    name: MSRV (Rust 1.75)
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install MSRV
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.75"
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Check MSRV
-        run: cargo check --all-features
+            core.info(`PR title OK: "${title}"`);
