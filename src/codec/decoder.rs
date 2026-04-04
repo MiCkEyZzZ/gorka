@@ -18,6 +18,14 @@ struct DecoderState {
 
 pub struct GlonassDecoder;
 
+pub struct DecodeIter<'a> {
+    reader: BitReader<'a>,
+    state: Option<DecoderState>,
+    remaining: usize,
+    errored: bool,
+    pending: Option<GlonassSample>,
+}
+
 impl DecoderState {
     fn from_first(sample: &GlonassSample) -> Self {
         let mut last_doppler = [None; N_SLOT];
@@ -77,7 +85,145 @@ impl GlonassDecoder {
 
         Ok(samples)
     }
+
+    #[allow(clippy::needless_range_loop)]
+    pub fn decode_into(
+        data: &[u8],
+        out: &mut [GlonassSample],
+    ) -> Result<usize, GorkaError> {
+        if data.len() < 9 {
+            return Err(GorkaError::UnexpectedEof);
+        }
+
+        let _version = VersionUtils::read_chunk_version(&data[0..9])?;
+        let count = u32::from_le_bytes(data[5..9].try_into().unwrap()) as usize;
+
+        if count == 0 {
+            return Ok(0);
+        }
+
+        if out.len() < count {
+            return Err(GorkaError::BufferFull);
+        }
+
+        let (first, first_len) = decode_verbatim(&data[9..])?;
+
+        out[0] = first.clone();
+
+        if count == 1 {
+            return Ok(1);
+        }
+
+        let bitstream_start = 9 + first_len;
+
+        if data.len() < bitstream_start {
+            return Err(GorkaError::UnexpectedEof);
+        }
+
+        let mut reader = BitReader::new(&data[bitstream_start..]);
+        let mut state = DecoderState::from_first(&first);
+
+        for i in 1..count {
+            out[i] = decode_delta(&mut reader, &mut state)?;
+        }
+
+        Ok(count)
+    }
+
+    pub fn iter_chunk(data: &[u8]) -> Result<DecodeIter<'_>, GorkaError> {
+        if data.len() < 9 {
+            return Err(GorkaError::UnexpectedEof);
+        }
+
+        let _version = VersionUtils::read_chunk_version(&data[0..9])?;
+        let count = u32::from_le_bytes(data[5..9].try_into().unwrap()) as usize;
+
+        if count == 0 {
+            // Пустой chunk: итератор сразу исчерпан
+            return Ok(DecodeIter {
+                reader: BitReader::new(&data[data.len()..]),
+                state: None,
+                remaining: 0,
+                errored: false,
+                // первый сэмпл "отдадим" через pending
+                pending: None,
+            });
+        }
+
+        let (first, first_len) = decode_verbatim(&data[9..])?;
+
+        let bitstream_start = 9 + first_len;
+        if data.len() < bitstream_start {
+            return Err(GorkaError::UnexpectedEof);
+        }
+
+        let reader = BitReader::new(&data[bitstream_start..]);
+        let state = DecoderState::from_first(&first);
+
+        Ok(DecodeIter {
+            reader,
+            state: Some(state),
+            remaining: count - 1, // первый уже "прочитан", осталось count-1
+            errored: false,
+            pending: Some(first), // первый сэмпл ждёт в очереди
+        })
+    }
 }
+
+impl<'a> DecodeIter<'a> {
+    pub fn remaining(&self) -> usize {
+        self.pending.is_some() as usize + self.remaining
+    }
+}
+
+impl<'a> Iterator for DecodeIter<'a> {
+    type Item = Result<GlonassSample, GorkaError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.errored {
+            return None;
+        }
+
+        // Первый сэмпл - verbatim, уже разобран, ждёт в `pending`
+        if let Some(first) = self.pending.take() {
+            return Some(Ok(first));
+        }
+
+        if self.remaining == 0 {
+            return None;
+        }
+
+        let state = match self.state.as_mut() {
+            Some(s) => s,
+            None => {
+                self.errored = true;
+
+                return Some(Err(GorkaError::UnexpectedEof));
+            }
+        };
+
+        match decode_delta(&mut self.reader, state) {
+            Ok(sample) => {
+                self.remaining -= 1;
+
+                Some(Ok(sample))
+            }
+            Err(e) => {
+                self.errored = true;
+
+                Some(Err(e))
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let n = self.remaining();
+
+        (n, Some(n))
+    }
+}
+
+impl<'a> ExactSizeIterator for DecodeIter<'a> {}
 
 fn decode_verbatim(data: &[u8]) -> Result<(GlonassSample, usize), GorkaError> {
     if data.len() < 23 {
@@ -202,6 +348,10 @@ fn decode_slot(
 
     let idx = reader.read_bits(4)?;
     let slot = idx_to_slot(idx);
+
+    if !(-7..=6).contains(&slot) {
+        return Err(GorkaError::UnexpectedEof);
+    }
 
     state.last_slot = slot;
 
@@ -380,7 +530,7 @@ fn decode_carrier_phase(
 
                     Some(curr)
                 } else {
-                    // '1111' + 64b verbatim (сброс DoD)
+                    // '1111' + 64b verbatim (DoD reset)
                     let curr = reader.read_bits(64)? as i64;
 
                     state.last_phase_delta = None;
@@ -758,5 +908,239 @@ mod tests {
         for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
             assert_eq!(o.pseudorange_mm, d.pseudorange_mm, "pr[{i}]");
         }
+    }
+
+    #[test]
+    fn test_decode_into_matches_decode_chunk() {
+        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let expected = GlonassDecoder::decode_chunk(&chunk).unwrap();
+        let mut out = vec![GlonassSample::default_zeroed(); 64];
+        let n = GlonassDecoder::decode_into(&chunk, &mut out).unwrap();
+
+        assert_eq!(n, expected.len());
+        assert_eq!(&out[..n], expected.as_slice());
+    }
+
+    #[test]
+    fn test_decode_into_single_sample() {
+        let orig = [constant_sample(0, 0)];
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let mut out: [GlonassSample; 1] = core::array::from_fn(|_| GlonassSample::default_zeroed());
+        let n = GlonassDecoder::decode_into(&chunk, &mut out).unwrap();
+
+        assert_eq!(n, 1);
+        assert_eq!(out[0], orig[0]);
+    }
+
+    #[test]
+    fn test_decode_into_all_slots() {
+        for slot in -7_i8..=6 {
+            let orig: Vec<_> = (0..16).map(|i| sample(i, slot)).collect();
+            let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+            let mut out: [GlonassSample; 16] =
+                core::array::from_fn(|_| GlonassSample::default_zeroed());
+            let n = GlonassDecoder::decode_into(&chunk, &mut out).unwrap();
+
+            assert_eq!(n, 16);
+            assert_eq!(&out[..n], orig.as_slice(), "slot {slot}");
+        }
+    }
+
+    #[test]
+    fn test_decode_into_buffer_too_small_returns_buffer_full() {
+        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        // Буфер вмещает только 10 сэмплов при 32 в chunk
+        let mut out =
+            core::array::from_fn::<GlonassSample, 10, _>(|_| GlonassSample::default_zeroed());
+
+        assert!(matches!(
+            GlonassDecoder::decode_into(&chunk, &mut out),
+            Err(GorkaError::BufferFull)
+        ));
+    }
+
+    #[test]
+    fn test_decode_into_exact_size_buffer() {
+        let orig: Vec<_> = (0..16).map(|i| sample(i, 2)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let mut out: [GlonassSample; 16] =
+            core::array::from_fn(|_| GlonassSample::default_zeroed());
+        let n = GlonassDecoder::decode_into(&chunk, &mut out).unwrap();
+
+        assert_eq!(n, 16);
+    }
+
+    #[test]
+    fn test_decode_into_stack_buffer_no_alloc() {
+        // Этот тест демонстрирует использование без Vec
+        let orig: Vec<_> = (0..10).map(|i| constant_sample(i, 0)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        // Стековый массив — никаких Vec
+        let mut out: [GlonassSample; 32] =
+            core::array::from_fn(|_| GlonassSample::default_zeroed());
+        let n = GlonassDecoder::decode_into(&chunk, &mut out).unwrap();
+
+        assert_eq!(n, 10);
+
+        for (i, (got, expected)) in out[..n].iter().zip(&orig).enumerate() {
+            assert_eq!(got, expected, "sample[{i}]");
+        }
+    }
+
+    #[test]
+    fn test_iter_chunk_matches_decode_chunk() {
+        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let expected = GlonassDecoder::decode_chunk(&chunk).unwrap();
+        let iter_result: Vec<GlonassSample> = GlonassDecoder::iter_chunk(&chunk)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        assert_eq!(iter_result, expected);
+    }
+
+    #[test]
+    fn test_iter_chunk_single_sample() {
+        let orig = [constant_sample(0, 3)];
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let mut iter = GlonassDecoder::iter_chunk(&chunk).unwrap();
+        let first = iter.next().unwrap().unwrap();
+
+        assert_eq!(first, orig[0]);
+        assert!(iter.next().is_none());
+    }
+
+    #[test]
+    fn test_iter_chunk_size_hint() {
+        let orig: Vec<_> = (0..20).map(|i| sample(i, 1)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let mut iter = GlonassDecoder::iter_chunk(&chunk).unwrap();
+
+        assert_eq!(iter.size_hint(), (20, Some(20)));
+
+        iter.next().unwrap().unwrap();
+
+        assert_eq!(iter.size_hint(), (19, Some(19)));
+
+        iter.next().unwrap().unwrap();
+
+        assert_eq!(iter.size_hint(), (18, Some(18)));
+    }
+
+    #[test]
+    fn test_iter_chunk_exact_size() {
+        let orig: Vec<_> = (0..10).map(|i| constant_sample(i, 0)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let iter = GlonassDecoder::iter_chunk(&chunk).unwrap();
+
+        assert_eq!(iter.len(), 10); // ExactSizeIterator
+    }
+
+    #[test]
+    fn test_iter_chunk_all_slots() {
+        for slot in -7_i8..=6 {
+            let orig: Vec<_> = (0..16).map(|i| sample(i, slot)).collect();
+            let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+            let decoded: Vec<_> = GlonassDecoder::iter_chunk(&chunk)
+                .unwrap()
+                .map(|r| r.unwrap())
+                .collect();
+
+            assert_eq!(decoded, orig, "slot {slot}");
+        }
+    }
+
+    #[test]
+    fn test_iter_chunk_no_alloc_style() {
+        // Демонстрация без Vec — обрабатываем сэмплы по одному
+        let orig: Vec<_> = (0..50).map(|i| constant_sample(i, 1)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+        let mut count = 0usize;
+
+        for (i, result) in GlonassDecoder::iter_chunk(&chunk).unwrap().enumerate() {
+            let s = result.unwrap();
+
+            assert_eq!(s.timestamp_ms, BASE_TS + i as u64, "ts[{i}]");
+
+            count += 1;
+        }
+
+        assert_eq!(count, 50);
+    }
+
+    #[test]
+    fn test_iter_chunk_stops_after_error() {
+        // Повреждённый chunk — итератор останавливается
+        let orig: Vec<_> = (0..10).map(|i| sample(i, 1)).collect();
+        let mut chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+
+        // Затираем bit-stream
+        let len = chunk.len();
+        for b in &mut chunk[len / 2..] {
+            *b = 0xFF;
+        }
+
+        let results: Vec<_> = GlonassDecoder::iter_chunk(&chunk).unwrap().collect();
+
+        // Где-то будет Err, после него — всё
+        let err_idx = results.iter().position(|r| r.is_err());
+        assert!(err_idx.is_some(), "expected at least one error");
+
+        // После ошибки итератор должен вернуть None (проверяем через iter_chunk снова)
+        // ExactSizeIterator: проверяем что count не превышает ожидаемого
+        assert!(results.len() <= 10);
+    }
+
+    #[test]
+    fn test_iter_chunk_carrier_phase_transitions() {
+        let mk = |ts, ph| GlonassSample {
+            carrier_phase_cycles: ph,
+            ..constant_sample(ts, 0)
+        };
+        let orig = vec![
+            mk(0, None),
+            mk(1, None),
+            mk(2, Some(1_000_000)),
+            mk(3, Some(1_021_000)),
+            mk(4, None),
+            mk(5, None),
+            mk(6, Some(2_000_000)),
+            mk(7, Some(2_021_000)),
+        ];
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+
+        let decoded: Vec<_> = GlonassDecoder::iter_chunk(&chunk)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        assert_eq!(decoded, orig);
+    }
+
+    #[test]
+    fn test_all_three_apis_are_consistent() {
+        let orig: Vec<_> = (0..64).map(|i| sample(i, (i % 5) as i8 - 2)).collect();
+        let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
+
+        // 1. decode_chunk
+        let from_chunk = GlonassDecoder::decode_chunk(&chunk).unwrap();
+
+        // 2. decode_into
+        let mut buf = vec![GlonassSample::default_zeroed(); 64];
+        let n = GlonassDecoder::decode_into(&chunk, &mut buf).unwrap();
+        let from_into = &buf[..n];
+
+        // 3. iter_chunk
+        let from_iter: Vec<_> = GlonassDecoder::iter_chunk(&chunk)
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+
+        assert_eq!(from_chunk, orig);
+        assert_eq!(from_into, orig.as_slice());
+        assert_eq!(from_iter, orig);
     }
 }

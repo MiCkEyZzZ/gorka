@@ -26,8 +26,12 @@ gorka
 │   ├── PROJECT_STRUCTURE.md
 │   └── TESTING.md
 ├── examples
-│   ├── edge_cases.rs
-│   └── encode_decode.rs
+│   ├── basic_encode.rs
+│   ├── compare.rs
+│   ├── no_std_demo.rs
+│   ├── stream_basic.rs
+│   ├── stream_performance.rs
+│   └── streaming.rs
 ├── src
 │   ├── bits
 │   │   ├── mod.rs
@@ -41,6 +45,7 @@ gorka
 │   │   ├── delta.rs
 │   │   ├── encoder.rs
 │   │   ├── mod.rs
+│   │   ├── stream.rs
 │   │   └── zigzag.rs
 │   ├── gnss
 │   │   ├── frame.rs
