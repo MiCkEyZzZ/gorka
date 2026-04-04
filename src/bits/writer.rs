@@ -1,7 +1,43 @@
+//! Bit-level writer for compact binary codecs.
+//!
+//! Writes bits in MSB-first order and supports alignment and ZigZag-encoded
+//! signed integers.
+//!
+//! This implementation uses a dynamically growing buffer (`Vec<u8>`), making it
+//! convenient for general-purpose encoding. For `no_std` or fixed-buffer use
+//! cases, see `RawBitWriter`.
+//!
+//! # Guarantees
+//!
+//! - Bits are written in **MSB-first** order (same as \[`BitReader`\])
+//! - Partial bytes are buffered and flushed on `finish()` or `align_to_byte()`.
+//! - Invalid bit widths and oversized values are checked.
+//! - All operations are safe.
+//!
+//! # Examples
+//!
+//! ```ignore
+//! let mut w = BitWriter::new();
+//!
+//! w.write_bits(0b101, 3).unwrap();
+//! w.write_bits(0b11, 2).unwrap();
+//!
+//! let buf = w.finish();
+//!
+//! assert_eq!(buf, vec![0b1011_1000]);
+//! ```
+
 use alloc::vec::Vec;
 
 use crate::{encode_i64, GorkaError};
 
+/// Bit-level writer backed by a dynamically growing buffer.
+///
+/// `BitWriter` writes bits in **MSB-first** order: the first bit written
+/// becomes the most significant bit of the byte.
+///
+/// This type is suitable for building compact binary streams where fields may
+/// not align to byte boundaries.
 pub struct BitWriter {
     buf: Vec<u8>,
     current: u8,
@@ -9,6 +45,7 @@ pub struct BitWriter {
 }
 
 impl BitWriter {
+    /// Creates a new empty bit writer.s
     pub fn new() -> Self {
         Self {
             buf: Vec::new(),
@@ -17,6 +54,9 @@ impl BitWriter {
         }
     }
 
+    /// Writes a single bit in MSB-first order.
+    ///
+    /// This operation never fails.
     #[inline(always)]
     pub fn write_bit(
         &mut self,
@@ -35,6 +75,14 @@ impl BitWriter {
         }
     }
 
+    /// Writes the lowest `n` bits of `value`.
+    ///
+    /// Bits are written from most significant to least significant.
+    ///
+    /// # Errors
+    ///
+    /// - `GorkaError::InvalidBitCount(n)` if `n > 64`
+    /// - `GorkaError::ValueTooLarge` if `value` does not fit in `n` bits
     #[inline(always)]
     pub fn write_bits(
         &mut self,
@@ -56,6 +104,14 @@ impl BitWriter {
         Ok(())
     }
 
+    /// Writes a signed integer using ZigZag encoding.
+    ///
+    /// This is equivalent to:
+    /// `write_bits(encode_i64(value), n)`
+    ///
+    /// # Errors
+    ///
+    /// Same as [`write_bits`](Self::write_bits)s
     #[inline(always)]
     pub fn write_bits_signed(
         &mut self,
@@ -67,6 +123,9 @@ impl BitWriter {
         self.write_bits(zz, n)
     }
 
+    /// Finalizes the writer and returns the underlying buffer.
+    ///
+    /// If there is a partially written byte, it is padded with zeros.
     pub fn finish(mut self) -> Vec<u8> {
         if self.pos > 0 {
             self.buf.push(self.current);
@@ -75,10 +134,14 @@ impl BitWriter {
         self.buf
     }
 
+    /// Returns the total number of bits written.
     pub fn bit_len(&self) -> usize {
         self.buf.len() * 8 + self.pos as usize
     }
 
+    /// Aligns the writer to the next byte boundary.
+    ///
+    /// If already aligned, this is a no-op.
     pub fn align_to_byte(&mut self) {
         if self.pos > 0 {
             self.buf.push(self.current);
@@ -87,6 +150,7 @@ impl BitWriter {
         }
     }
 
+    /// Returns `true` if the writer is currently byte-aligned.
     pub fn is_aligned(&self) -> bool {
         self.pos == 0
     }

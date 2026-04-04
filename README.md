@@ -275,6 +275,7 @@ cargo doc --no-deps --open
 cargo run --example basic_encode
 cargo run --example streaming
 cargo run --example no_std_demo
+cargo run --example compare
 ```
 
 - Format specification: [`docs/FORMAT.md`](docs/FORMAT.md)
