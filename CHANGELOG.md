@@ -6,6 +6,9 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **.github**
+  - обновил конвиг для `ci.yml`
+
 - **codec/stream**
   - StreamEncoder — новый инкрементальный encoder без аллокаций:
     - Поддержка `&mut [u8]` для embedded/фиксированных буферов
