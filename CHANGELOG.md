@@ -6,6 +6,16 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **codec/decoder**
+  - добавлен zero-copy API для декодирования:
+    - `decode_into(data: &[u8], out: &mut [GlonassSample]) -> Result<usize, GorkaError>`
+      - декодирование в буфер, предоставленный вызывающим кодом (без аллокаций)
+    - `DecodeIter<'a>` — потоковый итератор по sample без буферизации всего chunk
+  - поддержка `no_std` (работа без `alloc`)
+  - добавлены бенчмарки `decoder_bench.rs`:
+    - сравнение `decode_chunk` (alloc) vs `decode_into` (zero-copy) vs `iter_chunk`
+    - сценарии: smooth / constant / multi-slot
+
 - **.github**
   - обновил конвиг для `ci.yml`
 
@@ -35,9 +45,15 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Changed
 
+- **codec/decoder**
+  - оптимизация использования памяти:
+    - снижены аллокации при декодировании за счёт `decode_into`
+    - улучшена производительность (≈2–9% в зависимости от данных)
+
 - **bits/writer**
   - улучшена документация (Rustdoc) для методов `BitWriter`
   - добавлены inline оптимизации для скорости
+
 - **bits/reader**
   - улучшена документация (Rustdoc) для методов `BitReader`
   - добавлены пояснения по побитовому чтению и обработке signed значений через ZigZag

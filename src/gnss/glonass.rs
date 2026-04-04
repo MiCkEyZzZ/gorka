@@ -110,6 +110,17 @@ impl GlonassSample {
     pub fn doppler_hz_approx(&self) -> f64 {
         self.doppler_millihz.0 as f64 / 1_000.0
     }
+
+    pub fn default_zeroed() -> Self {
+        Self {
+            timestamp_ms: 0,
+            slot: 0,
+            cn0_dbhz: 0,
+            pseudorange_mm: Millimeter(0),
+            doppler_millihz: MilliHz(0),
+            carrier_phase_cycles: None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -459,5 +470,25 @@ mod tests {
     fn test_i32_range_covers_all_gnss_doppler() {
         // i32::MAX = 2_147_483_647 mHz ≈ 2.15 MHz — way above ±5000 Hz
         assert!(i32::MAX > GlonassSample::DOPPLER_MAX_MILLIHZ.0);
+    }
+
+    #[test]
+    fn test_default_zeroed_creates_valid_placeholder() {
+        let s = GlonassSample::default_zeroed();
+
+        assert_eq!(s.timestamp_ms, 0);
+        assert_eq!(s.slot, 0);
+        assert_eq!(s.cn0_dbhz, 0);
+        assert_eq!(s.pseudorange_mm.0, 0);
+        assert_eq!(s.doppler_millihz.0, 0);
+        assert_eq!(s.carrier_phase_cycles, None);
+    }
+
+    #[test]
+    fn test_stack_array_of_default_zeroed() {
+        // Проверяем что можно создать [GlonassSample; N] на стеке
+        let arr: [GlonassSample; 128] = core::array::from_fn(|_| GlonassSample::default_zeroed());
+
+        assert_eq!(arr.len(), 128);
     }
 }

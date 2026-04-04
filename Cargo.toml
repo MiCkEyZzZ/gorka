@@ -46,6 +46,11 @@ name = "stream_bench"
 path = "benches/stream_bench.rs"
 harness = false
 
+[[bench]]
+name = "decoder_bench"
+path = "benches/decoder_bench.rs"
+harness = false
+
 [[example]]
 name = "streaming"
 path = "examples/streaming.rs"
