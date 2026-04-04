@@ -1,5 +1,36 @@
+//! Bit-level reader for compact binary codecs.
+//!
+//! Reads bits in MSB-first order and supports skipping, alignment, and signed
+//! integer decoding. Safe for `no_std` environments and fixed-size buffers.
+
 use crate::{decode_i64, GorkaError};
 
+/// Bit-level reader over a byte slice.
+///
+/// `BitReader` reads bits in **MSB-first** order: the first bit of a byte is
+/// the most significant.
+///
+/// This type is designed for reading compact binary streams where fields may
+/// not align to byte boundaries.
+///
+/// # Guarantees
+///
+/// - Reading past the end of the buffer returns `GorkaError::UnexpectedEof`.
+/// - Partial bytes are handled correctly; `align_to_byte()` skips to the next
+///   byte boundary.
+/// - All operations are safe and checked.
+///
+/// # Examples
+///
+/// ```ignore
+/// let data = [0b1011_1000];
+/// let mut r = BitReader::new(&data);
+///
+/// let a = r.read_bits(3).unwrap();
+/// let b = r.read_bits(3).unwrap();
+///
+/// assert_eq!((a << 3) | b, 0b1011_1000 >> 2);
+/// ```
 pub struct BitReader<'a> {
     data: &'a [u8],
     byte_pos: usize,
@@ -7,6 +38,7 @@ pub struct BitReader<'a> {
 }
 
 impl<'a> BitReader<'a> {
+    /// Creates a new bit reader over `data`.
     pub fn new(data: &'a [u8]) -> Self {
         Self {
             data,
@@ -15,6 +47,11 @@ impl<'a> BitReader<'a> {
         }
     }
 
+    /// Reads a single bit in MSB-first order.
+    ///
+    /// # Errors
+    ///
+    /// Returns `GorkaError::UnexpectedEof` if the end of the buffer is reached.
     #[inline(always)]
     pub fn read_bit(&mut self) -> Result<bool, GorkaError> {
         if self.byte_pos >= self.data.len() {
@@ -33,6 +70,12 @@ impl<'a> BitReader<'a> {
         Ok(bit)
     }
 
+    /// Reads the next `n` bits and returns them as an unsigned integer.
+    ///
+    /// # Errors
+    ///
+    /// - `GorkaError::InvalidBitCount(n)` if `n > 64`
+    /// - `GorkaError::UnexpectedEof` if there are not enough bits remaining
     #[inline(always)]
     pub fn read_bits(
         &mut self,
@@ -55,6 +98,11 @@ impl<'a> BitReader<'a> {
         Ok(out)
     }
 
+    /// Reads `n` bits as a signed integer using ZigZag decoding.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`read_bits`](Self::read_bits)
     #[inline(always)]
     pub fn read_bits_signed(
         &mut self,
@@ -65,14 +113,17 @@ impl<'a> BitReader<'a> {
         Ok(decode_i64(zz))
     }
 
+    /// Returns the number of bits read so far.
     pub fn bits_read(&self) -> usize {
         self.byte_pos * 8 + self.bit_pos as usize
     }
 
+    /// Returns the number of bits remaining in the buffer.
     pub fn bits_remaining(&self) -> usize {
         self.data.len() * 8 - self.bits_read()
     }
 
+    /// Skips bits to the next byte boundary if not already aligned.
     pub fn align_to_byte(&mut self) {
         if self.bit_pos > 0 {
             self.byte_pos += 1;
@@ -80,6 +131,11 @@ impl<'a> BitReader<'a> {
         }
     }
 
+    /// Skips `n` bits in the stream.
+    ///
+    /// # Errors
+    ///
+    /// Returns `GorkaError::UnexpectedEof` if there are not enough bits left.
     pub fn skip_bits(
         &mut self,
         n: u8,
@@ -96,6 +152,7 @@ impl<'a> BitReader<'a> {
         Ok(())
     }
 
+    /// Returns `true` if the reader is aligned to a byte boundary.
     pub fn is_aligned(&self) -> bool {
         self.bit_pos == 0
     }

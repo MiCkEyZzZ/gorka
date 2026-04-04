@@ -10,6 +10,9 @@ readme = "README.md"
 keywords = ["gnss", "compression", "time-series", "glonass", "codec"]
 categories = ["compression", "science"]
 
+# Минимальная поддерживаемая версия Rust
+rust-version = "1.75"
+
 [lib]
 name = "gorka"
 path = "src/lib.rs"
@@ -18,8 +21,6 @@ path = "src/lib.rs"
 default = ["std"]
 std = []
 alloc = []
-
-# optional feature для rand
 rand = ["dep:rand"]
 
 [dependencies]
@@ -38,6 +39,11 @@ harness = false
 [[bench]]
 name = "bitio_bench"
 path = "benches/bitio_bench.rs"
+harness = false
+
+[[bench]]
+name = "stream_bench"
+path = "benches/stream_bench.rs"
 harness = false
 
 [[example]]

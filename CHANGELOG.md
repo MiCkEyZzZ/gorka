@@ -2,6 +2,43 @@
 
 All notable changes to **Gorka** are documented in this file.
 
+## [Unreleased] — 0000-00-00
+
+### Added
+
+- **codec/stream**
+  - StreamEncoder — новый инкрементальный encoder без аллокаций:
+    - Поддержка `&mut [u8]` для embedded/фиксированных буферов
+    - Методы:
+      - `new(buf: &mut [u8])`
+      - `push_sample(&mut self, sample: &GlonassSample) -> Result<usize, GorkaError>`
+      - `flush(&mut self, out: &mut [u8]) -> Result<usize, GorkaError>`
+      - `sample_count() -> u32`
+      - `bytes_written() -> usize`
+    - Автоматический выбор verbatim size: `23` байта без фазы, `31` с фазой
+    - Поддержка всех 14 слотов Glonass (`slot_idx`)
+    - Атомарный откат при ошибке записи (rollback)
+    - Delta-кодирование timestamp, slot, CN0, pseudorange, doppler и carrier phase
+    - ZigZag кодирование signed значений (`encode_i64`)
+    - Поддержка отсутствующей и вновь появившейся carrier phase
+    - Константы минимального буфера:
+      - `STREAM_ENCODER_MIN_BUF_NO_PHASE = 32`
+      - `STREAM_ENCODER_MIN_BUF_WITH_PHASE = 40`
+  - Примеры:
+    - `examples/stream_basic.rs` — базовый демо-тест, roundtrip проверка всех
+      сэмплов
+    - `examples/stream_performance.rs` — тест производительности для 100_000
+      сэмплов, 162602 bytes → Push 34.7ms, Decode 28.6ms
+
+### Changed
+
+- **bits/writer**
+  - улучшена документация (Rustdoc) для методов `BitWriter`
+  - добавлены inline оптимизации для скорости
+- **bits/reader**
+  - улучшена документация (Rustdoc) для методов `BitReader`
+  - добавлены пояснения по побитовому чтению и обработке signed значений через ZigZag
+
 ## [0.2.0] — 2026-03-03
 
 ### Added

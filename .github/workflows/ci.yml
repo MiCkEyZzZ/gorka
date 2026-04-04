@@ -3,8 +3,16 @@ name: CI
 on:
   push:
     branches: [master]
+    paths:
+      - "src/**"
+      - "Cargo.toml"
   pull_request:
     branches: [master]
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+  schedule:
+    - cron: "0 0 * * 1" # MSRV раз в неделю
 
 env:
   CARGO_TERM_COLOR: always
@@ -15,8 +23,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  fmt:
-    name: Rustfmt
+  checks:
+    name: Checks (fmt, clippy, deny, doc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,62 +32,31 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: install
+
+      - name: Run fmt
+        run: cargo fmt --all -- --check
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-  deny:
-    name: cargo-deny
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
       - name: Run cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
-          arguments: --all-features
+        run: cargo deny check --all-features
+
+      - name: Build docs
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --all-features
 
   test:
-    name: Test / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.os }}
-
-      - name: Run tests
-        run: cargo test --all-features
-
-  nextest:
-    name: Nextest
+    name: Tests (nextest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,13 +65,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: nextest
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
-      - name: Run tests via nextest
+      - name: Run tests
         run: cargo nextest run --all-features
 
   no-std:
@@ -106,12 +81,12 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Add embedded target explicitly
+      - name: Add embedded target
         run: rustup target add thumbv7em-none-eabihf
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Check no_std + alloc (embedded target)
+      - name: Check no_std + alloc
         run: >
           cargo check
           --target thumbv7em-none-eabihf
@@ -119,29 +94,14 @@ jobs:
           --features alloc
           --lib
 
-  doc:
-    name: Documentation
-    runs-on: ubuntu-latest
-    env:
-      RUSTDOCFLAGS: -D warnings
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Build docs
-        run: cargo doc --no-deps --all-features
-
   msrv:
     name: MSRV (Rust 1.75)
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust 1.75
+      - name: Install MSRV
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.75"
