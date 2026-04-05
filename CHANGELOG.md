@@ -2,7 +2,7 @@
 
 All notable changes to **Gorka** are documented in this file.
 
-## [Unreleased] — 0000-00-00
+## [0.3.0] — 2026-03-05
 
 ### Added
 
@@ -44,6 +44,9 @@ All notable changes to **Gorka** are documented in this file.
       сэмплов, 162602 bytes → Push 34.7ms, Decode 28.6ms
 
 ### Changed
+
+- **github**
+  - обновил логику работы MSRV job в `ci.yml`
 
 - **benches**
   - Обновлены тесты производительности `bitio_bench.rs` для reader и writer.
