@@ -1,247 +1,169 @@
-//! Benchmarks: низкоуровневые примитивы bit-IO и вычислений.
+//! Benchmarks для BitWriter и BitReader (GORKA-13).
 //!
-//! Позволяет отслеживать базовую скорость:
-//! - `BitWriter::write_bits` — запись произвольного числа бит
-//! - `BitWriter::write_bits_signed` — zigzag + запись
-//! - `delta_of_delta_i64` — вычисление DoD
-//! - `encode_i64` / `decode_i64` — zigzag encoding
+//! Запуск: `cargo bench --bench bitio_bench`
 //!
-//! Запуск:
-//! ```zsh
-//! cargo bench --bench bitio_bench
-//! ```
+//! Измеряет throughput в МБ/с для write/read 1M значений разной ширины.
 
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use gorka::{decode_i64, delta_of_delta_i64, encode_i64, BitReader, BitWriter};
+use gorka::{BitReader, BitWriter};
 
-fn bench_write_bits_aligned(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bitio/write_bits");
+// BitWriter benchmarks
 
-    // 8-битная запись: типичный cn0_dbhz / slot-индекс
-    group.throughput(Throughput::Elements(1));
-    group.bench_function("8bit", |b| {
-        b.iter(|| {
-            let mut w = BitWriter::new();
-            w.write_bits(black_box(0b1011_0101), 8).unwrap();
-            w.finish()
-        })
-    });
+fn bench_write_bits(c: &mut Criterion) {
+    let mut group = c.benchmark_group("BitWriter/write_bits");
 
-    // 10-битная запись: pseudorange bucket '10' + 10b
-    group.bench_function("10bit", |b| {
-        b.iter(|| {
-            let mut w = BitWriter::new();
-            w.write_bits(black_box(0b10_0000_0001), 10).unwrap();
-            w.finish()
-        })
-    });
+    for &n in &[1u8, 3, 7, 8, 9, 16, 32, 64] {
+        let value = (1u64 << n.min(63)) - 1;
+        let iters = 1_000_000usize;
+        let total_bits = iters * n as usize;
+        let total_bytes = total_bits.div_ceil(8);
 
-    // 32-битная запись: doppler verbatim
-    group.bench_function("32bit", |b| {
-        b.iter(|| {
-            let mut w = BitWriter::new();
-            w.write_bits(black_box(1_200_500u64), 32).unwrap();
-            w.finish()
-        })
-    });
-
-    // 64-битная запись: timestamp verbatim / carrier phase verbatim
-    group.bench_function("64bit", |b| {
-        b.iter(|| {
-            let mut w = BitWriter::new();
-            w.write_bits(black_box(1_700_000_000_000u64), 64).unwrap();
-            w.finish()
-        })
-    });
-
-    group.finish();
-}
-
-/// Пишем N бит подряд, измеряем throughput в байтах сырых данных.
-fn bench_write_bits_stream(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bitio/write_stream");
-
-    for &n_bits in &[128usize, 1024, 8192] {
-        let n_bytes = (n_bits / 8) as u64;
-        group.throughput(Throughput::Bytes(n_bytes));
-
-        group.bench_with_input(BenchmarkId::new("8bit_each", n_bits), &n_bits, |b, &n| {
+        group.throughput(Throughput::Bytes(total_bytes as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(format!("{n}b")), &n, |b, &n| {
             b.iter(|| {
                 let mut w = BitWriter::new();
-                for i in 0..(n / 8) {
-                    w.write_bits(black_box((i & 0xFF) as u64), 8).unwrap();
+                for _ in 0..iters {
+                    w.write_bits(black_box(value), n).unwrap();
                 }
-                w.finish()
-            })
-        });
-
-        group.bench_with_input(BenchmarkId::new("1bit_each", n_bits), &n_bits, |b, &n| {
-            b.iter(|| {
-                let mut w = BitWriter::new();
-                for i in 0..n {
-                    w.write_bit(black_box(i % 2 == 0));
-                }
-                w.finish()
-            })
+                black_box(w.finish())
+            });
         });
     }
 
     group.finish();
 }
 
-fn bench_read_bits_stream(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bitio/read_stream");
+fn bench_write_bit(c: &mut Criterion) {
+    let mut group = c.benchmark_group("BitWriter/write_bit");
+    let iters = 1_000_000usize;
 
-    for &n_bytes in &[16usize, 128, 1024] {
-        let data: Vec<u8> = (0..n_bytes).map(|i| (i & 0xFF) as u8).collect();
-        let n_bits = n_bytes as u64 * 8;
+    group.throughput(Throughput::Bytes((iters.div_ceil(8)) as u64));
+    group.bench_function("1b", |b| {
+        b.iter(|| {
+            let mut w = BitWriter::new();
+            for i in 0..iters {
+                w.write_bit(black_box(i % 2 == 0));
+            }
+            black_box(w.finish())
+        });
+    });
 
-        group.throughput(Throughput::Bytes(n_bytes as u64));
+    group.finish();
+}
 
-        group.bench_with_input(BenchmarkId::new("8bit_each", n_bits), &data, |b, d| {
+fn bench_write_mixed(c: &mut Criterion) {
+    let mut group = c.benchmark_group("BitWriter/mixed_encoder_profile");
+
+    let patterns: &[(u64, u8)] = &[(0, 1), (0, 1), (0, 1), (0, 1), (0b10, 2), (0b00, 2)];
+    let iters = 100_000usize;
+    let bits_per_iter: usize = patterns.iter().map(|(_, n)| *n as usize).sum();
+    let total_bytes = (iters * bits_per_iter).div_ceil(8);
+
+    group.throughput(Throughput::Bytes(total_bytes as u64));
+    group.bench_function("constant_signal", |b| {
+        b.iter(|| {
+            let mut w = BitWriter::new();
+            for _ in 0..iters {
+                for &(val, n) in patterns {
+                    w.write_bits(black_box(val), n).unwrap();
+                }
+            }
+            black_box(w.finish())
+        });
+    });
+
+    group.finish();
+}
+
+// BitReader benchmarks
+
+fn make_buf(n_bits: usize) -> Vec<u8> {
+    let bytes = n_bits.div_ceil(8);
+    (0..bytes).map(|i| i as u8).collect()
+}
+
+fn bench_read_bits(c: &mut Criterion) {
+    let mut group = c.benchmark_group("BitReader/read_bits");
+
+    for &n in &[1u8, 3, 7, 8, 9, 16, 32, 64] {
+        let iters = 1_000_000usize;
+        let total_bits = iters * n as usize;
+        let total_bytes = total_bits.div_ceil(8);
+        let buf = make_buf(total_bits + 64);
+
+        group.throughput(Throughput::Bytes(total_bytes as u64));
+        group.bench_with_input(BenchmarkId::from_parameter(format!("{n}b")), &n, |b, &n| {
             b.iter(|| {
-                let mut r = BitReader::new(black_box(d));
+                let mut r = BitReader::new(&buf);
                 let mut sum = 0u64;
-                while r.bits_remaining() >= 8 {
-                    sum = sum.wrapping_add(r.read_bits(8).unwrap());
+                for _ in 0..iters {
+                    sum ^= r.read_bits(n).unwrap();
                 }
-                sum
-            })
-        });
-
-        group.bench_with_input(BenchmarkId::new("1bit_each", n_bits), &data, |b, d| {
-            b.iter(|| {
-                let mut r = BitReader::new(black_box(d));
-                let mut count = 0u32;
-                while r.bits_remaining() >= 1 {
-                    if r.read_bit().unwrap() {
-                        count += 1;
-                    }
-                }
-                count
-            })
+                black_box(sum)
+            });
         });
     }
 
     group.finish();
 }
 
-/// Скорость вычисления одного DoD — ключевая операция в горячем пути encoder.
-fn bench_delta_of_delta(c: &mut Criterion) {
-    let mut group = c.benchmark_group("primitives/delta_of_delta_i64");
+fn bench_read_bit(c: &mut Criterion) {
+    let mut group = c.benchmark_group("BitReader/read_bit");
+    let iters = 1_000_000usize;
+    let buf = make_buf(iters + 64);
 
-    // Типичный случай: псевдодальность, медленный дрейф
-    group.throughput(Throughput::Elements(1));
-    group.bench_function("single", |b| {
+    group.throughput(Throughput::Bytes(iters.div_ceil(8) as u64));
+    group.bench_function("1b", |b| {
         b.iter(|| {
-            delta_of_delta_i64(
-                black_box(21_500_000_222),
-                black_box(21_500_000_000),
-                black_box(222),
-            )
-        })
-    });
-
-    // Batch: 1024 последовательных DoD, измеряем throughput элементов
-    let n = 1024usize;
-    let values: Vec<i64> = (0..n).map(|i| 21_500_000_000 + i as i64 * 222).collect();
-
-    group.throughput(Throughput::Elements(n as u64));
-    group.bench_function("batch_1024", |b| {
-        b.iter(|| {
-            let mut prev = values[0];
-            let mut prev_d = 0i64;
-            let mut checksum = 0i64;
-
-            for &curr in &values[1..] {
-                let dod = delta_of_delta_i64(curr, prev, prev_d);
-                checksum = checksum.wrapping_add(dod);
-                let delta = curr - prev;
-                prev_d = delta;
-                prev = curr;
+            let mut r = BitReader::new(&buf);
+            let mut sum = 0u64;
+            for _ in 0..iters {
+                sum ^= r.read_bit().unwrap() as u64;
             }
-            checksum
-        })
-    });
-
-    group.finish();
-}
-
-fn bench_zigzag(c: &mut Criterion) {
-    let mut group = c.benchmark_group("primitives/zigzag");
-    group.throughput(Throughput::Elements(1));
-
-    group.bench_function("encode_i64/zero", |b| {
-        b.iter(|| encode_i64(black_box(0i64)))
-    });
-    group.bench_function("encode_i64/positive", |b| {
-        b.iter(|| encode_i64(black_box(1_200_500i64)))
-    });
-    group.bench_function("encode_i64/negative", |b| {
-        b.iter(|| encode_i64(black_box(-3_500_000i64)))
-    });
-    group.bench_function("decode_i64/zero", |b| {
-        b.iter(|| decode_i64(black_box(0u64)))
-    });
-    group.bench_function("decode_i64/typical", |b| {
-        b.iter(|| decode_i64(black_box(2_401_000u64)))
-    });
-
-    // Batch roundtrip: encode затем decode
-    let n = 1024usize;
-    let values: Vec<i64> = (0..n as i64).map(|i| i * 1000 - 512_000).collect();
-
-    group.throughput(Throughput::Elements(n as u64));
-    group.bench_function("roundtrip_batch_1024", |b| {
-        b.iter(|| {
-            let mut checksum = 0i64;
-            for &v in &values {
-                checksum = checksum.wrapping_add(decode_i64(encode_i64(black_box(v))));
-            }
-            checksum
-        })
-    });
-
-    group.finish();
-}
-
-fn bench_write_bits_signed(c: &mut Criterion) {
-    let mut group = c.benchmark_group("bitio/write_bits_signed");
-    group.throughput(Throughput::Elements(1));
-
-    // Покрываем все bucket-ширины из encoder:
-    // 7b (timestamp bucket 2), 9b (timestamp/cn0), 10b (pr), 14b (doppler), 32b
-    // (phase)
-    for &(label, val, bits) in &[
-        ("7b_zero", 0i64, 7u8),
-        ("7b_small", 42i64, 7u8),
-        ("9b", -255i64, 9u8),
-        ("10b", 511i64, 10u8),
-        ("14b", 8191i64, 14u8),
-        ("32b", 2_147_483i64, 32u8),
-    ] {
-        group.bench_function(label, |b| {
-            b.iter(|| {
-                let mut w = BitWriter::new();
-                w.write_bits_signed(black_box(val), bits).unwrap();
-                w.finish()
-            })
+            black_box(sum)
         });
-    }
+    });
+
+    group.finish();
+}
+
+fn bench_roundtrip(c: &mut Criterion) {
+    let mut group = c.benchmark_group("BitWriter+Reader/roundtrip");
+    let iters = 100_000usize;
+    let data: Vec<u8> = (0..iters as u64)
+        .map(|i| ((i * 6364136223846793005) >> 56) as u8)
+        .collect();
+
+    group.throughput(Throughput::Bytes(iters as u64));
+    group.bench_function("8b", |b| {
+        b.iter(|| {
+            let mut w = BitWriter::new();
+            for &v in &data {
+                w.write_bits(v as u64, 8).unwrap();
+            }
+            let buf = w.finish();
+
+            let mut r = BitReader::new(&buf);
+            let mut sum = 0u64;
+            for _ in 0..iters {
+                sum ^= r.read_bits(8).unwrap();
+            }
+            black_box(sum)
+        });
+    });
 
     group.finish();
 }
 
 criterion_group!(
-    bitio_benches,
-    bench_write_bits_aligned,
-    bench_write_bits_stream,
-    bench_read_bits_stream,
-    bench_write_bits_signed,
+    benches,
+    bench_write_bits,
+    bench_write_bit,
+    bench_write_mixed,
+    bench_read_bits,
+    bench_read_bit,
+    bench_roundtrip,
 );
-
-criterion_group!(primitive_benches, bench_delta_of_delta, bench_zigzag,);
-
-criterion_main!(bitio_benches, primitive_benches);
+criterion_main!(benches);

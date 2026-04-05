@@ -92,13 +92,70 @@ impl BitWriter {
         if n > 64 {
             return Err(GorkaError::InvalidBitCount(n));
         }
-
         if n < 64 && value >= (1u64 << n) {
             return Err(GorkaError::ValueTooLarge { value, bits: n });
         }
+        if n == 0 {
+            return Ok(());
+        }
 
-        for i in (0..n).rev() {
-            self.write_bit((value >> i) & 1 == 1);
+        // Fast path: all n bits fit in the current (partial) byte
+        //
+        // avail = bits remaining in the current byte (1..=8).
+        // Condition: n ≤ avail — no byte boundary crossing needed.
+        let avail = 8 - self.pos;
+        if n <= avail {
+            // Shift value to align its MSB with the next free bit position.
+            // Example: pos=3 (3 bits used), n=3, avail=5
+            //   value = 0b101 → shift left by (avail-n)=2 → 0b10100
+            //   OR into current: 0bXXX_10100 → MSB side
+            self.current |= (value as u8) << (avail - n);
+            self.pos += n;
+            if self.pos == 8 {
+                self.buf.push(self.current);
+                self.current = 0;
+                self.pos = 0;
+            }
+            return Ok(());
+        }
+
+        // General path: bits span multiple bytes
+        //
+        // 1. Fill the current partial byte with the top bits of `value`.
+        // 2. Write full bytes from the middle of `value`.
+        // 3. Store leftover bits in the new `current`.
+
+        let mut rem = n; // bits still to write
+        let mut val = value;
+
+        // Step 1: fill current byte (pos > 0 guaranteed because avail < n ≤ 64,
+        // and avail = 8 - pos, so pos > 8 - n ≥ 0; since n ≥ 1, avail ≤ 7 → pos ≥ 1).
+        if self.pos > 0 {
+            let take = avail; // bits to consume from val's MSB
+                              // Extract the top `take` bits of val.
+            let top_bits = (val >> (rem - take)) as u8;
+            self.current |= top_bits;
+            self.buf.push(self.current);
+            self.current = 0;
+            self.pos = 0;
+            rem -= take;
+            // Zero out the bits we just consumed.
+            if rem < 64 {
+                val &= (1u64 << rem) - 1;
+            }
+        }
+
+        // Step 2: write whole bytes.
+        while rem >= 8 {
+            rem -= 8;
+            self.buf.push((val >> rem) as u8);
+        }
+
+        // Step 3: store leftover bits in current.
+        if rem > 0 {
+            // Align the rem-bit value to the MSB of the byte.
+            self.current = (val as u8) << (8 - rem);
+            self.pos = rem;
         }
 
         Ok(())
@@ -118,9 +175,7 @@ impl BitWriter {
         value: i64,
         n: u8,
     ) -> Result<(), GorkaError> {
-        let zz = encode_i64(value);
-
-        self.write_bits(zz, n)
+        self.write_bits(encode_i64(value), n)
     }
 
     /// Finalizes the writer and returns the underlying buffer.
@@ -364,5 +419,154 @@ mod tests {
         let res = w.write_bits(0, 65);
 
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_write_zero_bits_is_noop() {
+        let mut w = BitWriter::new();
+
+        w.write_bits(0, 0).unwrap();
+
+        assert_eq!(w.bit_len(), 0);
+        assert!(w.finish().is_empty());
+    }
+
+    #[test]
+    fn test_fast_path_fits_in_current_byte() {
+        // 3 bits used, then 3 more — should stay in same byte
+        let mut w = BitWriter::new();
+
+        w.write_bits(0b101, 3).unwrap(); // pos=3
+        w.write_bits(0b110, 3).unwrap(); // fits in same byte: pos=6
+
+        assert_eq!(w.bit_len(), 6);
+        assert!(!w.is_aligned());
+        assert_eq!(w.finish(), vec![0b1011_1000]);
+    }
+
+    #[test]
+    fn test_fast_path_exactly_fills_byte() {
+        let mut w = BitWriter::new();
+
+        w.write_bits(0b101, 3).unwrap(); // pos=3
+        w.write_bits(0b10101, 5).unwrap(); // fills exactly to byte boundary
+
+        assert_eq!(w.bit_len(), 8);
+        assert!(w.is_aligned());
+        assert_eq!(w.finish(), vec![0b10110101]);
+    }
+
+    #[test]
+    fn test_general_path_many_whole_bytes() {
+        // Write 32 bits spanning 4+ bytes
+        let mut w = BitWriter::new();
+
+        w.write_bits(3, 2).unwrap(); // pos=2
+        w.write_bits(0xDEAD_BEEF_u64, 32).unwrap(); // crosses many bytes
+
+        let buf = w.finish();
+        // Reconstruct manually to verify
+        let mut w2 = BitWriter::new();
+
+        w2.write_bits(3, 2).unwrap();
+
+        for i in (0..32).rev() {
+            w2.write_bit((0xDEAD_BEEF_u64 >> i) & 1 == 1);
+        }
+
+        assert_eq!(buf, w2.finish());
+    }
+
+    #[test]
+    fn test_roundtrip_with_bit_reader() {
+        use crate::BitReader;
+        let mut w = BitWriter::new();
+
+        w.write_bits(0b10110, 5).unwrap();
+        w.write_bits(0b11001, 5).unwrap();
+        w.write_bits(0b00111, 5).unwrap();
+
+        let buf = w.finish();
+
+        let mut r = BitReader::new(&buf);
+
+        assert_eq!(r.read_bits(5).unwrap(), 0b10110);
+        assert_eq!(r.read_bits(5).unwrap(), 0b11001);
+        assert_eq!(r.read_bits(5).unwrap(), 0b00111);
+    }
+
+    #[test]
+    fn test_bulk_write_matches_bitwise() {
+        // Compare bulk write_bits with equivalent write_bit loop
+        let values: &[(u64, u8)] = &[
+            (0b1, 1),
+            (0b101, 3),
+            (0b1010_1010, 8),
+            (0b11111111111, 11),
+            (0xABCDEF, 24),
+            (u64::MAX, 64),
+        ];
+
+        for &(val, n) in values {
+            let mut bulk = BitWriter::new();
+
+            bulk.write_bits(val, n).unwrap();
+
+            let bulk_buf = bulk.finish();
+
+            let mut bitwise = BitWriter::new();
+
+            for i in (0..n).rev() {
+                bitwise.write_bit((val >> i) & 1 == 1);
+            }
+
+            let bitwise_buf = bitwise.finish();
+
+            assert_eq!(bulk_buf, bitwise_buf, "mismatch for val={val:#b} n={n}");
+        }
+    }
+
+    #[test]
+    fn test_signed_roundtrip() {
+        use crate::BitReader;
+
+        let mut w = BitWriter::new();
+
+        w.write_bits_signed(-42, 16).unwrap();
+        w.write_bits_signed(1_200, 16).unwrap();
+
+        let buf = w.finish();
+        let mut r = BitReader::new(&buf);
+
+        assert_eq!(r.read_bits_signed(16).unwrap(), -42);
+        assert_eq!(r.read_bits_signed(16).unwrap(), 1_200);
+    }
+
+    #[test]
+    fn test_partial_then_full_then_partial() {
+        // Stress test: partial byte → full bytes → partial byte
+        let mut w = BitWriter::new();
+
+        w.write_bits(0b111, 3).unwrap(); // partial: pos=3
+        w.write_bits(0xDEADBEEF, 32).unwrap(); // crosses many bytes
+        w.write_bits(0b10101, 5).unwrap(); // remainder
+
+        let buf = w.finish();
+
+        let mut w2 = BitWriter::new();
+
+        for i in (0..3u8).rev() {
+            w2.write_bit((0b111_u64 >> i) & 1 == 1);
+        }
+
+        for i in (0..32u8).rev() {
+            w2.write_bit((0xDEADBEEF_u64 >> i) & 1 == 1);
+        }
+
+        for i in (0..5u8).rev() {
+            w2.write_bit((0b10101_u64 >> i) & 1 == 1);
+        }
+
+        assert_eq!(buf, w2.finish());
     }
 }
