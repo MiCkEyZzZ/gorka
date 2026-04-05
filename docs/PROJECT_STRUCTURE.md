@@ -13,8 +13,10 @@ gorka
 │   └── pull_request_template.md
 ├── benches
 │   ├── bitio_bench.rs
+│   ├── decoder_bench.rs
 │   ├── encode_bench.rs
-│   └── README.md
+│   ├── README.md
+│   └── stream_bench.rs
 ├── docs
 │   ├── API.md
 │   ├── ARCHITECTURE.md
