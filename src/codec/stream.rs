@@ -1,5 +1,6 @@
 use crate::{
-    encode_i64, FormatVersion, GlonassSample, GorkaError, MilliHz, Millimeter, VersionUtils,
+    encode_i64, BitWrite, FormatVersion, GlonassSample, GorkaError, MilliHz, Millimeter,
+    RawBitWriter, VersionUtils,
 };
 
 pub const STREAM_ENCODER_MIN_BUF_NO_PHASE: usize = 9 + 23;
@@ -7,8 +8,8 @@ pub const STREAM_ENCODER_MIN_BUF_WITH_PHASE: usize = 9 + 31;
 
 const N_SLOT: usize = 14;
 
-pub struct StreamEncoder<'buf> {
-    buf: &'buf mut [u8],
+pub struct StreamEncoder<'a> {
+    buf: &'a mut [u8],
     bitstream_start: usize,
     byte_pos: usize,
     bit_pos: u8,
@@ -38,12 +39,6 @@ struct StateSnapshot {
     last_doppler: [Option<i32>; N_SLOT],
     last_phase: Option<i64>,
     last_phase_delta: Option<i64>,
-}
-
-struct RawBitWriter<'a> {
-    buf: &'a mut [u8],
-    byte_pos: usize,
-    bit_pos: u8,
 }
 
 impl EncoderState {
@@ -95,8 +90,8 @@ impl EncoderState {
     }
 }
 
-impl<'buf> StreamEncoder<'buf> {
-    pub fn new(buf: &'buf mut [u8]) -> Self {
+impl<'a> StreamEncoder<'a> {
+    pub fn new(buf: &'a mut [u8]) -> Self {
         Self {
             buf,
             bitstream_start: 0,
@@ -196,11 +191,7 @@ impl<'buf> StreamEncoder<'buf> {
         let save_bit_pos = self.bit_pos;
 
         let result = {
-            let mut writer = RawBitWriter {
-                buf: self.buf,
-                byte_pos: self.byte_pos,
-                bit_pos: self.bit_pos,
-            };
+            let mut writer = RawBitWriter::from_state(self.buf, save_byte_pos, save_bit_pos);
 
             let reader = encode_delta_fields(&mut writer, state, sample);
 
@@ -227,70 +218,6 @@ impl<'buf> StreamEncoder<'buf> {
         }
 
         result
-    }
-}
-
-impl<'a> RawBitWriter<'a> {
-    #[inline(always)]
-    fn write_bit(
-        &mut self,
-        bit: bool,
-    ) -> Result<(), GorkaError> {
-        if self.byte_pos >= self.buf.len() {
-            return Err(GorkaError::BufferFull);
-        }
-
-        if bit {
-            self.buf[self.byte_pos] |= 1 << (7 - self.bit_pos);
-        }
-
-        self.bit_pos += 1;
-
-        if self.bit_pos == 8 {
-            self.byte_pos += 1;
-            self.bit_pos = 0;
-
-            if self.byte_pos < self.buf.len() {
-                self.buf[self.byte_pos] = 0;
-            }
-        }
-
-        Ok(())
-    }
-
-    #[inline(always)]
-    fn write_bits(
-        &mut self,
-        value: u64,
-        n: u8,
-    ) -> Result<(), GorkaError> {
-        if n > 64 {
-            return Err(GorkaError::InvalidBitCount(n));
-        }
-
-        if n < 64 && value >= (1u64 << n) {
-            return Err(GorkaError::ValueTooLarge { value, bits: n });
-        }
-
-        let available = self.buf.len().saturating_sub(self.byte_pos) * 8 - self.bit_pos as usize;
-
-        if (n as usize) > available {
-            return Err(GorkaError::BufferFull);
-        }
-
-        for i in (0..n).rev() {
-            self.write_bit((value >> i) & 1 == 1)?;
-        }
-
-        Ok(())
-    }
-
-    fn write_bits_signed(
-        &mut self,
-        value: i64,
-        n: u8,
-    ) -> Result<(), GorkaError> {
-        self.write_bits(encode_i64(value), n)
     }
 }
 

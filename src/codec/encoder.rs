@@ -77,6 +77,7 @@ impl EncoderState {
     }
 }
 
+#[allow(deprecated)]
 impl GlonassEncoder {
     // Кодирует фрагмент `GlonassSample` в сжатый байтовый блок.
     pub fn encode_chunk(samples: &[GlonassSample]) -> Result<Vec<u8>, GorkaError> {
@@ -141,6 +142,7 @@ fn encode_verbatim(
     }
 }
 
+#[allow(deprecated)]
 fn encode_delta(
     writer: &mut BitWriter,
     state: &mut EncoderState,
@@ -156,6 +158,7 @@ fn encode_delta(
     Ok(())
 }
 
+#[allow(deprecated)]
 // Timestamp: дельта-из-дельты по 4-компонентной схеме.
 fn encode_timestamp(
     writer: &mut BitWriter,
@@ -185,6 +188,7 @@ fn encode_timestamp(
     Ok(())
 }
 
+#[allow(deprecated)]
 // Slot: 1-битный флаг, новое значение в 4 битах, если изменено.
 fn encode_slot(
     writer: &mut BitWriter,
@@ -203,6 +207,7 @@ fn encode_slot(
     Ok(())
 }
 
+#[allow(deprecated)]
 // C/N0: простой дельта-зигзаг.
 // Максимальное значение дельты для поля u8 составляет ±255; зигзаг(255) = 510
 // < 512 = 2^9.
@@ -225,6 +230,7 @@ fn encode_cn0(
     Ok(())
 }
 
+#[allow(deprecated)]
 // Pseudorange: разница дельта-дельта в миллиметрах, схема с 4 интервалами.
 fn encode_pseudorange(
     writer: &mut BitWriter,
@@ -254,6 +260,7 @@ fn encode_pseudorange(
     Ok(())
 }
 
+#[allow(deprecated)]
 // Доплеровский эффект: дельта-эффект для каждого слота с коррекцией FDMA.
 // Каждый k-slot ГЛОНАСС отслеживает свой последний доплеровский сдвиг
 // независимо, так что чередующиеся многоспутниковые фрагменты не создают
@@ -294,6 +301,7 @@ fn encode_doppler(
     Ok(())
 }
 
+#[allow(deprecated)]
 // Carrier phase: необязательная, дельта-дельта.
 fn encode_carrier_phase(
     writer: &mut BitWriter,

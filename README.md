@@ -247,9 +247,27 @@ gorka = { version = "0.3", default-features = false, features = ["alloc"] }
 Available in `no_std + alloc`:
 
 - `GlonassEncoder::encode_chunk` / `GlonassDecoder::decode_chunk`
-- `BitReader`, `BitWriter`
+- `BitReader`, `RawBitWriter`
 - `encode_i64`, `decode_i64`, `delta_of_delta_i64`
 - `GnssFrame`, `GlonassSample`
+
+### RawBitWriter — zero-copy bit writer (v0.4+)
+
+For `no_std` / embedded use, prefer `RawBitWriter` over the deprecated `BitWriter`:
+
+```rust
+use gorka::{bits::BitWrite, RawBitWriter};
+
+let mut buf = [0u8; 64];
+let mut w = RawBitWriter::new(&mut buf);
+w.write_bits(0b101, 3).unwrap();
+w.write_bits_signed(-42i64, 16).unwrap();
+let n = w.bytes_written();
+// &buf[..n] contains the encoded bits — no heap allocation
+```
+
+`BitWriter` (Vec-backed) is deprecated since v0.4.0 and will be removed in v0.5.0.
+Use `RawBitWriter` + `BitWrite` trait as the replacement.
 
 Requires `std`:
 
