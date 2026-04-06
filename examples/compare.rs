@@ -1,7 +1,7 @@
 use std::io::Write;
 
 use flate2::{write::GzEncoder, Compression};
-use gorka::{codec::GlonassEncoder, GlonassSample, MilliHz, Millimeter};
+use gorka::{GlonassEncoder, GlonassSample, MilliHz, Millimeter};
 
 fn make_data(n: usize) -> Vec<GlonassSample> {
     let base_ts = 1_700_000_000_000;

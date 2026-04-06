@@ -1,7 +1,4 @@
-use gorka::{
-    codec::{GlonassDecoder, GlonassEncoder},
-    GlonassSample, MilliHz, Millimeter,
-};
+use gorka::{GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter};
 
 fn main() {
     // Создаём серию наблюдений одного спутника

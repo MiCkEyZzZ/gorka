@@ -2,6 +2,97 @@
 
 All notable changes to **Gorka** are documented in this file.
 
+## [Unreleased] — 0000-00-00
+
+### ⚠️ Deprecation Notice
+
+`BitWriter` (Vec-backed) is **deprecated** starting from this release.
+
+It remains fully functional in v0.4.0 — existing code compiles without changes,
+but will produce a compiler warning (`#[deprecated]`).
+
+**Migration path:**
+
+```rust
+// Before (v0.3, deprecated)
+use gorka::BitWriter;
+let mut w = BitWriter::new();
+w.write_bits(0b101, 3).unwrap();
+let buf = w.finish();
+
+// After (v0.4+, recommended)
+use gorka::{BitWrite, RawBitWriter};
+let mut storage = [0u8; 64];
+let mut w = RawBitWriter::new(&mut storage);
+w.write_bits(0b101, 3).unwrap();
+let n = w.bytes_written();
+let buf = &storage[..n];
+```
+
+**Removal schedule:**
+
+| Version | Status                                                    |
+| ------- | --------------------------------------------------------- |
+| v0.3    | `BitWriter` — рабочий, без deprecated                     |
+| v0.4    | `BitWriter` — `#[deprecated]`, предупреждение компилятора |
+| v0.5    | `BitWriter` — будет удалён                                |
+
+### Added
+
+- **`bits::BitWrite` trait** (`src/bits/mod.rs`)
+  Общий интерфейс для bit-level записи. Реализован для `RawBitWriter` и `BitWriter`.
+  Методы: `write_bit`, `write_bits`, `write_bits_signed`, `align_to_byte`, `bit_len`, `is_aligned`.
+  Используйте в generic-контексте: `fn encode<W: BitWrite>(w: &mut W, ...)`.
+
+- **`RawBitWriter<'a>`** (`src/bits/raw_writer.rs`)
+  Zero-copy bit writer поверх `&'a mut [u8]`. Не требует `alloc`. Подходит для `no_std` и embedded.
+  Использует bulk-алгоритм (GORKA-13): fast-path для `n ≤ avail`, general-path O(n/8).
+  Конструкторы: `new`, `from_offset`, `from_state` (pub(crate)).
+  Аксессоры: `bytes_written`, `byte_pos`, `bit_pos`.
+
+- **Тесты** (`tests/test_raw_bitwriter.rs`, `tests/bit_raw_property.rs`)
+  Unit-тесты и property-based тесты (proptest) для `RawBitWriter`:
+  roundtrip, побитовая симметрия с `BitReader`, align, signed, edge cases.
+
+- **Бенчмарки** (`benches/raw_bitio_bench.rs`)
+  Throughput в MiB/s для `RawBitWriter::write_bits` (1b/3b/7b/8b/9b/16b/32b/64b),
+  `write_bit`, mixed encoder profile, roundtrip с `BitReader`.
+
+- **Пример** (`examples/no_std_demo_raw.rs`)
+  Демонстрация `RawBitWriter` + `BitWrite` в `no_std`-совместимом коде.
+
+### Changed
+
+- **`BitWriter`** (`src/bits/writer.rs`)
+  Помечен `#[deprecated(since = "0.4.0")]`. Публичный API не изменился —
+  `new()`, `write_bit`, `write_bits`, `write_bits_signed`, `finish()`, `align_to_byte`, `bit_len`, `is_aligned`
+  работают идентично v0.3.
+  Добавлен `impl BitWrite for BitWriter` для generic-совместимости.
+
+- **`StreamEncoder`** (`src/codec/stream.rs`)
+  Внутренний приватный `struct RawBitWriter` удалён. Вместо него используется
+  публичный `crate::bits::RawBitWriter`. Публичный API `StreamEncoder` не изменился:
+  `push_sample`, `flush`, `sample_count`, `bytes_written`, `STREAM_ENCODER_MIN_BUF_NO_PHASE`,
+  `STREAM_ENCODER_MIN_BUF_WITH_PHASE` — совместимы с v0.3.
+
+- **`README.md`**
+  Обновлена секция `## no_std Mode`: добавлен `RawBitWriter`, план deprecation,
+  пример миграции. Версия в `Cargo.toml`-примере обновлена до `"0.4"`.
+
+### Compatibility
+
+| API                            | v0.3 | v0.4                   |
+| ------------------------------ | ---- | ---------------------- |
+| `GlonassEncoder::encode_chunk` | ✅   | ✅ без изменений       |
+| `GlonassDecoder::decode_chunk` | ✅   | ✅ без изменений       |
+| `StreamEncoder::push_sample`   | ✅   | ✅ без изменений       |
+| `StreamEncoder::flush`         | ✅   | ✅ без изменений       |
+| `BitWriter`                    | ✅   | ⚠️ deprecated, рабочий |
+| `BitReader`                    | ✅   | ✅ без изменений       |
+| Wire format (chunk bytes)      | V1   | V1 без изменений       |
+
+---
+
 ## [0.3.0] — 2026-03-05
 
 ### Added

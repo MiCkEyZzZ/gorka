@@ -214,6 +214,7 @@ impl<'a> BitReader<'a> {
     }
 }
 
+#[allow(deprecated)]
 #[cfg(test)]
 mod tests {
     use super::*;

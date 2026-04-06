@@ -5,9 +5,8 @@ use std::{
 };
 
 use gorka::{
-    codec::{GlonassDecoder, GlonassEncoder},
     io::{ChunkReader, ChunkWriter},
-    GlonassSample, MilliHz, Millimeter,
+    GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter,
 };
 
 /// Генератор наблюдений для одного спутника.

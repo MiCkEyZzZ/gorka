@@ -36,14 +36,43 @@ use crate::{encode_i64, GorkaError};
 /// `BitWriter` writes bits in **MSB-first** order: the first bit written
 /// becomes the most significant bit of the byte.
 ///
+/// # Deprecation (v0.4.0)
+///
+/// Перейдите на [`RawBitWriter`][crate::RawBitWriter] для zero-alloc записи
+/// или используйте trait [`BitWrite`][crate::bits::BitWrite] как общий
+/// интерфейс.
+///
+/// ## Путь миграции
+///
+/// ```ignore
+/// // v0.3 (deprecated)
+/// use gorka::BitWriter;
+/// let mut w = BitWriter::new();
+/// w.write_bits(0b101, 3).unwrap();
+/// let buf = w.finish();
+///
+/// // v0.4+ (рекомендуется)
+/// use gorka::RawBitWriter;
+/// let mut storage = [0u8; 64];
+/// let mut w = RawBitWriter::new(&mut storage);
+/// w.write_bits(0b101, 3).unwrap();
+/// let n = w.bytes_written();
+/// ```
+///
 /// This type is suitable for building compact binary streams where fields may
 /// not align to byte boundaries.
+#[deprecated(
+    since = "0.4.0",
+    note = "Use `RawBitWriter<'a>` (zero-alloc) or `impl BitWriter` instead. \
+    `BitWrite` will be removed in v0.5.0."
+)]
 pub struct BitWriter {
     buf: Vec<u8>,
     current: u8,
     pos: u8,
 }
 
+#[allow(deprecated)]
 impl BitWriter {
     /// Creates a new empty bit writer.s
     pub fn new() -> Self {
@@ -211,12 +240,53 @@ impl BitWriter {
     }
 }
 
+#[allow(deprecated)]
+impl crate::bits::BitWrite for BitWriter {
+    #[inline(always)]
+    fn write_bit(
+        &mut self,
+        bit: bool,
+    ) -> Result<(), GorkaError> {
+        BitWriter::write_bit(self, bit);
+
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn write_bits(
+        &mut self,
+        value: u64,
+        n: u8,
+    ) -> Result<(), GorkaError> {
+        BitWriter::write_bits(self, value, n)
+    }
+
+    #[inline(always)]
+    fn write_bits_signed(
+        &mut self,
+        value: i64,
+        n: u8,
+    ) -> Result<(), GorkaError> {
+        BitWriter::write_bits_signed(self, value, n)
+    }
+
+    fn align_to_byte(&mut self) {
+        BitWriter::align_to_byte(self);
+    }
+
+    fn bit_len(&self) -> usize {
+        BitWriter::bit_len(self)
+    }
+}
+
+#[allow(deprecated)]
 impl Default for BitWriter {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[allow(deprecated)]
 #[cfg(test)]
 mod tests {
     use alloc::vec;
