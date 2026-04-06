@@ -1,34 +1,82 @@
-use crate::{error::GorkaError, MilliHz, Millimeter};
+use crate::{GorkaError, MilliHz, Millimeter};
 
 // Общие типы вынес в отдельный файл `types.rs` для удобства в будущем
 // при создании других источников таких как: GPS, Galileo, Beido
 
-/// One GLONASS telemetry observation.
+/// A single GLONASS satellite observation captured at one epoch.
+///
+/// GLONASS uses **FDMA** (Frequency Division Multiple Access): each satellite
+/// transmits on a unique carrier frequency determined by its frequency slot `k`
+/// (see [`GlonassSample::slot`]).  A `GlonassSample` bundles the raw
+/// measurements needed for pseudorange positioning and Doppler velocity
+/// estimation.
+///
+/// # Fixed-point representation
+/// All measurements use integer newtypes ([`Millimeter`], [`MilliHz`]) to
+/// avoid floating-point rounding errors in the processing pipeline.
+///
+/// # Validation
+/// Call [`validate`](GlonassSample::validate) before using a sample in any
+/// computation.  Individual checks are also available as
+/// [`validate_slot`](GlonassSample::validate_slot),
+/// [`validate_pseudorange`](GlonassSample::validate_pseudorange), and
+/// [`validate_doppler`](GlonassSample::validate_doppler).
 // `slot` is the FDMA frequency slot k ∈ [-7, +6].
 // Carrier frequency = 1602 + k * 0.5625 Mhz.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GlonassSample {
-    /// Unix timestamp in milliseconds since epoch
+    /// Unix timestamp in milliseconds since epoch.
     pub timestamp_ms: u64,
-    /// GLONASS frequency slot: k ∈ [-7, +6]
+    /// GLONASS FDMA frequency slot: k ∈ \[−7, +6\] (14 slots total).
+    ///
+    /// The L1 carrier frequency for slot `k` is
+    /// `1 602 + k × 0.5625 MHz`.
+    /// Use [`carrier_freq_millihz`](GlonassSample::carrier_freq_millihz)
+    /// to compute the exact value.
     pub slot: i8,
-    /// Carrier-to-noise density (dB-Hz), typical range 30-50
+    /// Carrier-to-noise density ratio in dB·Hz.
+    ///
+    /// Typical tracked values: 30–50 dB·Hz.
+    /// Signals below [`CN0_MIN_TRACKED`](GlonassSample::CN0_MIN_TRACKED)
+    /// (20 dB·Hz) are considered untracked.
     pub cn0_dbhz: u8,
-    /// Pseudorange (m), typical range 20_000_000-26_000_000
+    /// Measured pseudorange in millimetres.
+    ///
+    /// Physically plausible range:
+    /// [`PSEUDORANGE_MIN_MM`]…[`PSEUDORANGE_MAX_MM`] (roughly 19 100 km –
+    /// 25 600 km).
+    ///
+    /// [`PSEUDORANGE_MIN_MM`]: GlonassSample::PSEUDORANGE_MIN_MM
+    /// [`PSEUDORANGE_MAX_MM`]: GlonassSample::PSEUDORANGE_MAX_MM
     pub pseudorange_mm: Millimeter,
-    /// Doppler shift (Hz), typical range ±4000 (slot-dependent)
+    /// Measured Doppler shift in millihertz.
+    ///
+    /// Positive values indicate the satellite is approaching; negative values
+    /// indicate it is receding.  Magnitude is bounded by
+    /// [`DOPPLER_MAX_MILLIHZ`](GlonassSample::DOPPLER_MAX_MILLIHZ) (≈ ±5 000
+    /// Hz).
     pub doppler_millihz: MilliHz,
     /// Accumulated carrier phase in units of 2⁻³² cycles.
+    ///
+    /// `None` when the receiver has not yet achieved phase lock or after a
+    /// cycle slip.  When present, the value can grow large over long
+    /// observation sessions — `i64` provides sufficient range.
     pub carrier_phase_cycles: Option<i64>,
 }
 
 impl GlonassSample {
     // GLONASS slot range: k ∈ [-7, +6] (14 slots total)
+    /// Minimum valid FDMA frequency slot (`-7`).
     pub const SLOT_MIN: i8 = -7;
+
+    /// Maximum valid FDMA frequency slot (`+6`).
     pub const SLOT_MAX: i8 = 6;
 
     // Carrier frequency for slot `k` in Hz (integer mHz for precision)
+    /// L1 centre frequency for slot `k = 0` in millihertz (1 602.000 000 MHz).
     pub const BASE_FREQ_MILLIHZ: i64 = 1_602_000_000;
+
+    /// Per-slot frequency step in millihertz (0.562 5 MHz).
     pub const FREQ_STEP_MILLIHZ: i64 = 562_500;
 
     /// Minimum plausible pseudorange for a GLONASS satellite (LEO, ~19 100 km).
@@ -45,7 +93,19 @@ impl GlonassSample {
     /// Minimum signal strength considered "tracked".
     pub const CN0_MIN_TRACKED: u8 = 20;
 
-    /// Validate that all fields are within physically plausible bounds.
+    /// Validates that all fields are within physically plausible bounds.
+    ///
+    /// Runs [`validate_slot`], [`validate_pseudorange`], and
+    /// [`validate_doppler`] in sequence, returning the first error encountered.
+    ///
+    /// [`validate_slot`]: GlonassSample::validate_slot
+    /// [`validate_pseudorange`]: GlonassSample::validate_pseudorange
+    /// [`validate_doppler`]: GlonassSample::validate_doppler
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidSlot`] if the slot is out of range,
+    /// [`GorkaError::InvalidPseudorange`] if the pseudorange is implausible, or
+    /// [`GorkaError::InvalidDoppler`] if the Doppler magnitude is too large.
     pub fn validate(&self) -> Result<(), GorkaError> {
         self.validate_slot()?;
         self.validate_pseudorange()?;
@@ -54,7 +114,22 @@ impl GlonassSample {
         Ok(())
     }
 
-    /// Validate only the FDMA slot identifier.
+    /// Validates only the FDMA slot identifier.
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidSlot`] when `slot` is outside
+    /// \[`SLOT_MIN`, `SLOT_MAX`\] (i.e., outside \[−7, +6\]).
+    ///
+    /// # Example
+    /// ```
+    /// use gorka::{GlonassSample, MilliHz, Millimeter};
+    ///
+    /// let s = GlonassSample {
+    ///     slot: 7,
+    ///     ..GlonassSample::default_zeroed()
+    /// };
+    /// assert!(s.validate_slot().is_err());
+    /// ```
     pub fn validate_slot(&self) -> Result<(), GorkaError> {
         if !(Self::SLOT_MIN..=Self::SLOT_MAX).contains(&self.slot) {
             return Err(GorkaError::InvalidSlot(self.slot));
@@ -63,7 +138,17 @@ impl GlonassSample {
         Ok(())
     }
 
-    /// Validate pseudorange is within physically plausible range.
+    /// Validates that the pseudorange is within physically plausible bounds.
+    ///
+    /// Checks that [`pseudorange_mm`](GlonassSample::pseudorange_mm) falls in
+    /// \[[`PSEUDORANGE_MIN_MM`], [`PSEUDORANGE_MAX_MM`]\].
+    ///
+    /// [`PSEUDORANGE_MIN_MM`]: GlonassSample::PSEUDORANGE_MIN_MM
+    /// [`PSEUDORANGE_MAX_MM`]: GlonassSample::PSEUDORANGE_MAX_MM
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidPseudorange`] with the offending raw value
+    /// when the range is outside the expected window.
     pub fn validate_pseudorange(&self) -> Result<(), GorkaError> {
         if self.pseudorange_mm < Self::PSEUDORANGE_MIN_MM
             || self.pseudorange_mm > Self::PSEUDORANGE_MAX_MM
@@ -74,7 +159,16 @@ impl GlonassSample {
         Ok(())
     }
 
-    /// Validate Dopler magnitude is within plausible range.
+    /// Validates that the Doppler magnitude is within plausible bounds.
+    ///
+    /// The absolute value of
+    /// [`doppler_millihz`](GlonassSample::doppler_millihz) must not exceed
+    /// [`DOPPLER_MAX_MILLIHZ`](GlonassSample::DOPPLER_MAX_MILLIHZ)
+    /// (5 000 000 mHz ≈ 5 000 Hz).
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidDoppler`] with the offending raw value
+    /// when the magnitude is too large.
     pub fn validate_doppler(&self) -> Result<(), GorkaError> {
         if self.doppler_millihz.abs() > Self::DOPPLER_MAX_MILLIHZ {
             return Err(GorkaError::InvalidDoppler(self.doppler_millihz.0));
@@ -83,20 +177,41 @@ impl GlonassSample {
         Ok(())
     }
 
-    /// Return `true` if the signal is considered tracked (cn0 above threshold).
+    /// Returns `true` if the signal strength is above the tracking threshold.
+    ///
+    /// A sample is considered *tracked* when
+    /// `cn0_dbhz >= `[`CN0_MIN_TRACKED`](GlonassSample::CN0_MIN_TRACKED)` (20
+    /// dB·Hz)`. Untracked samples should generally be excluded from
+    /// positioning computations.
     #[inline]
     pub fn is_tracked(&self) -> bool {
         self.cn0_dbhz >= Self::CN0_MIN_TRACKED
     }
 
-    /// Carrier frequency for this sample's slot in millihertz.
+    /// Computes the L1 carrier frequency for this sample's slot in millihertz.
+    ///
+    /// Formula: `BASE_FREQ_MILLIHZ + slot × FREQ_STEP_MILLIHZ`
+    /// (i.e., `1 602 + k × 0.5625 MHz`).
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidSlot`] if the slot fails
+    /// [`validate_slot`](GlonassSample::validate_slot).
+    ///
+    /// # Example
+    /// ```
+    /// use gorka::GlonassSample;
+    ///
+    /// let mut s = GlonassSample::default_zeroed();
+    /// s.slot = 1; // k = +1 → 1 602.5625 MHz
+    /// assert_eq!(s.carrier_freq_millihz().unwrap(), 1_602_562_500);
+    /// ```
     pub fn carrier_freq_millihz(&self) -> Result<i64, GorkaError> {
         self.validate_slot()?;
 
         Ok(Self::BASE_FREQ_MILLIHZ + self.slot as i64 * Self::FREQ_STEP_MILLIHZ)
     }
 
-    /// Pseudorange in metres as a human-readable f64 (for display / debug
+    /// Pseudorange in metres as a human-readable `f64` (for display / debug
     /// only).
     // Don't use this value for computation inside gorka - use pseudorange_mm directly to avoid
     // floating-point noise.
@@ -105,12 +220,24 @@ impl GlonassSample {
         self.pseudorange_mm.0 as f64 / 1_000.0
     }
 
-    /// Doppler in Hz as a human-readable f64 (for display / debug only).
+    /// Doppler in Hz as a human-readable `f64` (for display / debug only).
+    ///
+    /// Do **not** use this value for any computation — use
+    /// [`doppler_millihz`](GlonassSample::doppler_millihz) directly.
     #[cfg(feature = "std")]
     pub fn doppler_hz_approx(&self) -> f64 {
         self.doppler_millihz.0 as f64 / 1_000.0
     }
 
+    /// Returns a zeroed-out placeholder `GlonassSample`.
+    ///
+    /// All numeric fields are `0`; `carrier_phase_cycles` is `None`.
+    /// Useful for initialising fixed-size arrays on the stack without
+    /// requiring `Default` or heap allocation.
+    ///
+    /// Note that a zeroed sample will **not** pass
+    /// [`validate`](GlonassSample::validate) (the pseudorange is outside
+    /// the plausible window).
     pub fn default_zeroed() -> Self {
         Self {
             timestamp_ms: 0,
