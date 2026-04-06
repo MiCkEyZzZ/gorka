@@ -54,7 +54,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-gorka = "0.4"
+gorka = "0.4.1"
 ```
 
 Minimal example:
@@ -241,7 +241,7 @@ The codec works without the standard library (only `alloc`):
 
 ```toml
 [dependencies]
-gorka = { version = "0.4", default-features = false, features = ["alloc"] }
+gorka = { version = "0.4.1", default-features = false, features = ["alloc"] }
 ```
 
 Available in `no_std + alloc`:
