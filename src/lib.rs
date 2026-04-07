@@ -50,7 +50,8 @@ pub use codec::{
 };
 pub use error::GorkaError;
 pub use gnss::{
-    BdsPrn, ConstellationType, DbHz, GalSvn, GalileoSample, GloSlot, GlonassSample, GnssFrame,
-    GnssMeasurement, GnssSample, GpsPrn, GpsSample, Hertz, MilliHz, Millimeter, SatelliteId,
-    GAL_E1_FREQ, GAL_E5A_FREQ, GAL_E5B_FREQ, GPS_L1_FREQ, GPS_L2_FREQ, MAX_GLONASS_SATS,
+    BdsPrn, BeidouSample, ConstellationType, DbHz, GalSvn, GalileoSample, GloSlot, GlonassSample,
+    GnssFrame, GnssMeasurement, GnssSample, GpsPrn, GpsSample, Hertz, MilliHz, Millimeter,
+    SatelliteId, BDS_B1C_FREQ, BDS_B1I_FREQ, BDS_B2A_FREQ, GAL_E1_FREQ, GAL_E5A_FREQ, GAL_E5B_FREQ,
+    GPS_L1_FREQ, GPS_L2_FREQ, MAX_GLONASS_SATS,
 };

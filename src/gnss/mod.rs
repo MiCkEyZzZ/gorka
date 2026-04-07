@@ -26,6 +26,7 @@ pub mod gps;
 pub mod measurement;
 pub mod types;
 
+pub use beidou::*;
 pub use constellation::*;
 pub use frame::*;
 pub use galileo::*;

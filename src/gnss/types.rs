@@ -44,6 +44,17 @@ pub struct Millimeter(pub i64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Hertz(pub i64);
 
+/// Carrier-to-noise density expressed in **dB-Hz** (dB·Hz).
+///
+/// # Range
+/// Typical GNSS signals: 0..=60 dB-Hz. Stored as a raw `u8`.
+///
+/// # Usage
+/// Use this type for all C/N₀ fields in GNSS observations.
+/// Convert to `f32` or `f64` only if needed for calculations or plotting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DbHz(pub u8);
+
 /// GPS satellite PRN (pseudo-random number) identifier.
 ///
 /// # Range
@@ -88,17 +99,6 @@ pub struct BdsPrn(pub u8);
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct GloSlot(pub i8);
 
-/// Carrier-to-noise density expressed in **dB-Hz** (dB·Hz).
-///
-/// # Range
-/// Typical GNSS signals: 0..=60 dB-Hz. Stored as a raw `u8`.
-///
-/// # Usage
-/// Use this type for all C/N₀ fields in GNSS observations.
-/// Convert to `f32` or `f64` only if needed for calculations or plotting.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DbHz(pub u8);
-
 impl Millimeter {
     /// Creates a new [`Millimeter`] from a raw `i64` millimetre value.
     ///
@@ -110,13 +110,17 @@ impl Millimeter {
     /// let range = Millimeter::new(21_500_000_000);
     /// assert_eq!(range.as_i64(), 21_500_000_000);
     /// ```
-    pub fn new(v: i64) -> Self {
+    pub const fn new(v: i64) -> Self {
         Self(v)
     }
 
     /// Returns the raw inner value in millimetres.
-    pub fn as_i64(&self) -> i64 {
+    pub const fn as_i64(self) -> i64 {
         self.0
+    }
+
+    pub fn as_m(self) -> f64 {
+        self.0 as f64 / 1000.0
     }
 }
 
@@ -131,12 +135,12 @@ impl MilliHz {
     /// let doppler = MilliHz::new(1_200_500);
     /// assert_eq!(doppler.as_i32(), 1_200_500);
     /// ```
-    pub fn new(v: i32) -> Self {
+    pub const fn new(v: i32) -> Self {
         Self(v)
     }
 
     /// Returns the raw inner value in millihertz.
-    pub fn as_i32(&self) -> i32 {
+    pub const fn as_i32(self) -> i32 {
         self.0
     }
 
@@ -144,8 +148,32 @@ impl MilliHz {
     ///
     /// Useful for magnitude comparisons that are sign-agnostic, such as
     /// checking whether a Doppler shift exceeds a threshold.
-    pub fn abs(self) -> Self {
+    pub const fn abs(self) -> Self {
         Self(self.0.abs())
+    }
+
+    pub fn as_hz(self) -> f64 {
+        self.0 as f64 / 1000.0
+    }
+}
+
+impl Hertz {
+    pub const fn new(value: i64) -> Self {
+        Self(value)
+    }
+
+    pub const fn as_i64(self) -> i64 {
+        self.0
+    }
+
+    pub const fn as_f64(self) -> f64 {
+        self.0 as f64
+    }
+}
+
+impl DbHz {
+    pub const fn get(self) -> u8 {
+        self.0
     }
 }
 
@@ -213,13 +241,7 @@ impl GloSlot {
     }
 
     #[inline]
-    pub fn get(self) -> i8 {
-        self.0
-    }
-}
-
-impl DbHz {
-    pub const fn get(self) -> u8 {
+    pub const fn get(self) -> i8 {
         self.0
     }
 }
@@ -229,7 +251,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn millimeter_basic() {
+    fn test_millimeter_basic() {
         let m = Millimeter::new(42);
         assert_eq!(m.as_i64(), 42);
 
@@ -238,7 +260,7 @@ mod tests {
     }
 
     #[test]
-    fn millihz_basic() {
+    fn test_millihz_basic() {
         let hz = MilliHz::new(1_234_567);
         assert_eq!(hz.as_i32(), 1_234_567);
         assert_eq!(hz.abs().as_i32(), 1_234_567);
@@ -248,7 +270,7 @@ mod tests {
     }
 
     #[test]
-    fn gps_prn_valid() {
+    fn test_gps_prn_valid() {
         for prn in GpsPrn::MIN..=GpsPrn::MAX {
             let gps = GpsPrn::new(prn).unwrap();
             assert_eq!(gps.get(), prn);
@@ -256,13 +278,13 @@ mod tests {
     }
 
     #[test]
-    fn gps_prn_invalid() {
+    fn test_gps_prn_invalid() {
         assert!(GpsPrn::new(0).is_err());
         assert!(GpsPrn::new(33).is_err());
     }
 
     #[test]
-    fn gal_svn_valid() {
+    fn test_gal_svn_valid() {
         for svn in GalSvn::MIN..=GalSvn::MAX {
             let gal = GalSvn::new(svn).unwrap();
             assert_eq!(gal.get(), svn);
@@ -270,13 +292,13 @@ mod tests {
     }
 
     #[test]
-    fn gal_svn_invalid() {
+    fn test_gal_svn_invalid() {
         assert!(GalSvn::new(0).is_err());
         assert!(GalSvn::new(37).is_err());
     }
 
     #[test]
-    fn bds_prn_valid() {
+    fn test_bds_prn_valid() {
         for prn in BdsPrn::MIN..=BdsPrn::MAX {
             let bds = BdsPrn::new(prn).unwrap();
             assert_eq!(bds.get(), prn);
@@ -284,13 +306,13 @@ mod tests {
     }
 
     #[test]
-    fn bds_prn_invalid() {
+    fn test_bds_prn_invalid() {
         assert!(BdsPrn::new(0).is_err());
         assert!(BdsPrn::new(64).is_err());
     }
 
     #[test]
-    fn glo_slot_valid() {
+    fn test_glo_slot_valid() {
         for slot in GloSlot::MIN..=GloSlot::MAX {
             let s = GloSlot::new(slot).unwrap();
             assert_eq!(s.get(), slot);
@@ -298,14 +320,87 @@ mod tests {
     }
 
     #[test]
-    fn glo_slot_invalid() {
+    fn test_glo_slot_invalid() {
         assert!(GloSlot::new(-8).is_err());
         assert!(GloSlot::new(7).is_err());
     }
 
     #[test]
-    fn dbhz_basic() {
+    fn test_dbhz_basic() {
         let c = DbHz(42);
         assert_eq!(c.get(), 42);
+    }
+
+    #[test]
+    fn test_millimeter_to_meters() {
+        let m = Millimeter::new(1_500);
+
+        assert_eq!(m.as_m(), 1.5);
+    }
+
+    #[test]
+    fn test_millihz_to_hz() {
+        let hz = MilliHz::new(1_500_000);
+
+        assert_eq!(hz.as_hz(), 1500.0);
+    }
+
+    #[test]
+    fn test_millimeter_ordering() {
+        let a = Millimeter::new(100);
+        let b = Millimeter::new(200);
+
+        assert!(a < b);
+        assert!(b > a);
+    }
+
+    #[test]
+    fn test_millihz_ordering() {
+        let a = MilliHz::new(-1000);
+        let b = MilliHz::new(500);
+
+        assert!(a < b);
+    }
+
+    #[test]
+    fn test_gps_prn_bounds() {
+        assert!(GpsPrn::new(GpsPrn::MIN).is_ok());
+        assert!(GpsPrn::new(GpsPrn::MAX).is_ok());
+    }
+
+    #[test]
+    fn test_gal_svn_bounds() {
+        assert!(GalSvn::new(GalSvn::MIN).is_ok());
+        assert!(GalSvn::new(GalSvn::MAX).is_ok());
+    }
+
+    #[test]
+    fn test_glo_slot_bounds() {
+        assert!(GloSlot::new(GloSlot::MIN).is_ok());
+        assert!(GloSlot::new(GloSlot::MAX).is_ok());
+    }
+
+    #[test]
+    fn test_millimeter_copy() {
+        let a = Millimeter::new(100);
+        let b = a;
+
+        assert_eq!(a.as_i64(), b.as_i64());
+    }
+
+    #[test]
+    fn test_millimeter_negative_to_meters() {
+        let m = Millimeter::new(-2000);
+
+        assert_eq!(m.as_m(), -2.0);
+    }
+
+    #[test]
+    fn test_dbhz_range() {
+        let low = DbHz(0);
+        let high = DbHz(60);
+
+        assert_eq!(low.get(), 0);
+        assert_eq!(high.get(), 60);
     }
 }
