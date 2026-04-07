@@ -51,5 +51,6 @@ pub use codec::{
 pub use error::GorkaError;
 pub use gnss::{
     BdsPrn, ConstellationType, DbHz, GalSvn, GloSlot, GlonassSample, GnssFrame, GnssMeasurement,
-    GnssSample, GpsPrn, Hertz, MilliHz, Millimeter, SatelliteId, MAX_GLONASS_SATS,
+    GnssSample, GpsPrn, GpsSample, Hertz, MilliHz, Millimeter, SatelliteId, GPS_L1_FREQ,
+    GPS_L2_FREQ, MAX_GLONASS_SATS,
 };

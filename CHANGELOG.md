@@ -6,6 +6,22 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **gnss/galileo**:
+  - добавлена реализация `GalileoSample`:
+    - структура `GalileoSample` с полями: `timestamp_ms`, `svn`, `cn0_dbhz`,
+      `pseudorange_mm`, `doppler_millihz`, `carrier_phase_cycles`.
+    - константы частот: `GAL_E1_FREQ`, `GAL_E5A_FREQ`, `GAL_E5B_FREQ`.
+    - методы валидации:
+      - `validate_svn()`, `validate_pseudorange()`, `validate_doppler()`
+      - комплексная проверка `validate()`, булевы методы `is_valid_*()`.
+
+    - реализация трейта `GnssMeasurement`.
+    - unit-тесты:
+      - проверка корректности SVN, псевдодальности, допплера.
+      - boundary cases для SVN, псевдодальности и допплера.
+      - проверка методов `satellite_id()` и соответствия `ConstellationType::Galileo`.
+      - проверка корректности частот (`GAL_E1_FREQ`, `GAL_E5A_FREQ`, `GAL_E5B_FREQ`).
+
 - **gnss**:
   - добавлены новые unit-тесты для всех конструкторов и методов, включая `SatelliteId`
     и `ConstellationType`.
