@@ -1,5 +1,3 @@
-use crate::GorkaError;
-
 /// Distance expressed as an integer number of **millimetres**.
 ///
 /// Using an integer newtype instead of `f64` ensures lossless arithmetic
