@@ -9,20 +9,24 @@ All notable changes to **Gorka** are documented in this file.
 - **gnss/types**:
   - Добавлены newtype для единиц измерения и GNSS идентификаторов:
     - `Millimeter` — расстояние в миллиметрах (`i64`), с методами `new()` и `as_i64()`.
-    - `MilliHz` — частота в миллигерцах (`i32`), с методами `new()`, `as_i32()` и `abs()`.
+    - `MilliHz` — частота в миллигерцах (`i32`), с методами `new()`, `as_i32()`
+      и `abs()`.
     - `Hertz` — частота в герцах (`i64`).
     - `GpsPrn` — идентификатор GPS спутника (`u8`), с `MIN/MAX`, `new()` и `get()`.
     - `GalSvn` — идентификатор Galileo спутника (`u8`), с `get()`.
     - `BdsPrn` — идентификатор Beidou спутника (`u8`), с `get()`.
     - `GloSlot` — слот GLONASS (`i8`), с `MIN/MAX`, `new()` и `get()`.
     - `DbHz` — интенсивность сигнала (`u8`), с `get()`.
-  - Методы-конструкторы (`new()`) проверяют диапазон и возвращают `GorkaError` при некорректном значении.
+  - Методы-конструкторы (`new()`) проверяют диапазон и возвращают `GorkaError`
+    при некорректном значении.
   - Все newtype имеют геттеры для безопасного извлечения внутреннего значения.
-  - Использование integer newtype вместо `f64` / float обеспечивает точность и предотвращает потери при арифметике и сравнении.
+  - Использование integer newtype вместо `f64` / float обеспечивает точность и
+    предотвращает потери при арифметике и сравнении.
 
 - **gnss**:
   - В `constellation.rs` добавлены новые unit-тесты для максимальной надёжности:
-    - Проверка всех конструкторов `SatelliteId::glonass()`, `gps()`, `galileo()`, `beidou()`.
+    - Проверка всех конструкторов `SatelliteId::glonass()`, `gps()`, `galileo()`,
+      `beidou()`.
     - Проверка методов `.constellation()`, `.glonass_slot()`, `.to_wire()`.
     - Проверка формата отображения `Display` для всех созвездий и спутников.
     - Проверка порядка сортировки `ConstellationType::order()`.
@@ -30,7 +34,8 @@ All notable changes to **Gorka** are documented in this file.
     - Дополнительные edge-case тесты для `to_wire()` и форматирования `GLO/GPS/GAL/BDS`.
 
   - Добавлены newtype и enum для унифицированного представления спутников:
-    - `SatelliteId` — уникальный идентификатор спутника в созвездии (Glonass, GPS, Galileo, Beidou).
+    - `SatelliteId` — уникальный идентификатор спутника в созвездии (Glonass, GPS,
+      Galileo, Beidou).
     - `ConstellationType` — тип созвездия, с методами:
       - `abbrev()` — краткий ASCII идентификатор ("GLO", "GPS", "GAL", "BDS").
       - `is_fdma()` — true для GLONASS (FDMA).
@@ -41,7 +46,8 @@ All notable changes to **Gorka** are documented in this file.
       - `SatelliteId::glonass_slot()`
       - `SatelliteId::to_wire()` — сериализация для wire формата.
     - Реализованы `Display` для удобного форматирования спутников и созвездий.
-  - Юнит-тесты для всех методов, конструкторов и отображения (`Display`, `to_wire()`, `order`).
+  - Юнит-тесты для всех методов, конструкторов и отображения (`Display`, `to_wire()`,
+    `order`).
 
 ### Changed
 
