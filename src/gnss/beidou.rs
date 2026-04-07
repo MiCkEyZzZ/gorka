@@ -119,7 +119,7 @@ mod tests {
     fn make_bds() -> BeidouSample {
         BeidouSample {
             timestamp_ms: 1_700_000_000_000,
-            prn: BdsPrn(25),
+            prn: BdsPrn::new(25).unwrap(),
             cn0_dbhz: DbHz(38),
             pseudorange_mm: Millimeter::new(24_000_000_000),
             doppler_millihz: MilliHz::new(-1_800_000),
@@ -137,12 +137,18 @@ mod tests {
 
     #[test]
     fn test_invalid_prn() {
+        let prn_result = BdsPrn::new(100);
+
+        assert!(prn_result.is_err());
+        assert!(matches!(prn_result, Err(GorkaError::InvalidPrn(100))));
+
+        // Для создания BdsSample используем валидный PRN
         let mut sample = make_bds();
 
-        sample.prn = BdsPrn(100); // вне допустимого диапазона
+        sample.prn = BdsPrn::new(1).unwrap(); // валидное значение
 
-        assert!(!sample.is_valid_prn());
-        assert!(sample.validate().is_err());
+        assert!(sample.is_valid_prn());
+        assert!(sample.validate().is_ok());
     }
 
     #[test]

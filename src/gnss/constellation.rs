@@ -138,16 +138,16 @@ mod tests {
     #[test]
     fn test_glonass_slot_roundtrip() {
         for k in -7_i8..=6 {
-            let sid = SatelliteId::glonass(GloSlot(k));
+            let sid = SatelliteId::glonass(GloSlot::new(k).unwrap());
 
             assert_eq!(sid.constellation(), ConstellationType::Glonass);
-            assert_eq!(sid.glonass_slot(), Some(GloSlot(k)));
+            assert_eq!(sid.glonass_slot(), Some(GloSlot::new(k).unwrap()));
         }
     }
 
     #[test]
     fn test_gps_prn() {
-        let sid = SatelliteId::gps(GpsPrn(15));
+        let sid = SatelliteId::gps(GpsPrn::new(15).unwrap());
 
         assert_eq!(sid.constellation(), ConstellationType::Gps);
         assert_eq!(sid.glonass_slot(), None);
@@ -160,7 +160,7 @@ mod tests {
 
     #[test]
     fn test_galileo_svn() {
-        let sid = SatelliteId::galileo(GalSvn(15));
+        let sid = SatelliteId::galileo(GalSvn::new(15).unwrap());
 
         assert_eq!(sid.constellation(), ConstellationType::Galileo);
         assert_eq!(sid.glonass_slot(), None);
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_beidou_prn() {
-        let sid = SatelliteId::beidou(BdsPrn(15));
+        let sid = SatelliteId::beidou(BdsPrn::new(15).unwrap());
 
         assert_eq!(sid.constellation(), ConstellationType::Beidou);
         assert_eq!(sid.glonass_slot(), None);
@@ -194,10 +194,10 @@ mod tests {
 
     #[test]
     fn test_display_satellite_id() {
-        let s = alloc::format!("{}", SatelliteId::gps(GpsPrn(5)));
+        let s = alloc::format!("{}", SatelliteId::gps(GpsPrn::new(5).unwrap()));
         assert_eq!(s, "GPS05");
 
-        let g = alloc::format!("{}", SatelliteId::glonass(GloSlot(1)));
+        let g = alloc::format!("{}", SatelliteId::glonass(GloSlot::new(1).unwrap()));
         assert_eq!(g, "GLO08");
     }
 
@@ -210,32 +210,32 @@ mod tests {
 
     #[test]
     fn test_to_wire() {
-        let gps = SatelliteId::gps(GpsPrn(5));
+        let gps = SatelliteId::gps(GpsPrn::new(5).unwrap());
         assert_eq!(gps.to_wire(), (ConstellationType::Gps, 5));
 
-        let glo = SatelliteId::glonass(GloSlot(1));
+        let glo = SatelliteId::glonass(GloSlot::new(1).unwrap());
         assert_eq!(glo.to_wire(), (ConstellationType::Glonass, 8));
     }
 
     #[test]
     fn test_glonass_slot_edges() {
-        let min_slot = SatelliteId::glonass(GloSlot(-7));
-        let max_slot = SatelliteId::glonass(GloSlot(6));
+        let min_slot = SatelliteId::glonass(GloSlot::new(-7).unwrap());
+        let max_slot = SatelliteId::glonass(GloSlot::new(6).unwrap());
 
-        assert_eq!(min_slot.glonass_slot(), Some(GloSlot(-7)));
+        assert_eq!(min_slot.glonass_slot(), Some(GloSlot::new(-7).unwrap()));
         assert_eq!(min_slot.to_wire(), (ConstellationType::Glonass, 0));
-        assert_eq!(max_slot.glonass_slot(), Some(GloSlot(6)));
+        assert_eq!(max_slot.glonass_slot(), Some(GloSlot::new(6).unwrap()));
         assert_eq!(max_slot.to_wire(), (ConstellationType::Glonass, 13))
     }
 
     #[test]
     fn test_display_glonass_edges() {
         assert_eq!(
-            alloc::format!("{}", SatelliteId::glonass(GloSlot(-7))),
+            alloc::format!("{}", SatelliteId::glonass(GloSlot::new(-7).unwrap())),
             "GLO00"
         );
         assert_eq!(
-            alloc::format!("{}", SatelliteId::glonass(GloSlot(6))),
+            alloc::format!("{}", SatelliteId::glonass(GloSlot::new(6).unwrap())),
             "GLO13"
         );
     }
@@ -244,18 +244,22 @@ mod tests {
     fn test_all_constellations_to_wire_and_constellation() {
         let satellites: [(SatelliteId, ConstellationType, u8); 4] = [
             (
-                SatelliteId::glonass(GloSlot(0)),
+                SatelliteId::glonass(GloSlot::new(0).unwrap()),
                 ConstellationType::Glonass,
-                7,
+                SatelliteId::glonass(GloSlot::new(0).unwrap()).to_wire().1,
             ),
-            (SatelliteId::gps(GpsPrn(32)), ConstellationType::Gps, 32),
             (
-                SatelliteId::galileo(GalSvn(0)),
+                SatelliteId::gps(GpsPrn::new(32).unwrap()),
+                ConstellationType::Gps,
+                32,
+            ),
+            (
+                SatelliteId::galileo(GalSvn::new(1).unwrap()),
                 ConstellationType::Galileo,
-                0,
+                1,
             ),
             (
-                SatelliteId::beidou(BdsPrn(10)),
+                SatelliteId::beidou(BdsPrn::new(10).unwrap()),
                 ConstellationType::Beidou,
                 10,
             ),
@@ -270,10 +274,10 @@ mod tests {
     #[test]
     fn test_display_all_constellations() {
         let satellites: [(SatelliteId, &str); 4] = [
-            (SatelliteId::glonass(GloSlot(3)), "GLO10"),
-            (SatelliteId::gps(GpsPrn(7)), "GPS07"),
-            (SatelliteId::galileo(GalSvn(1)), "GAL01"),
-            (SatelliteId::beidou(BdsPrn(12)), "BDS12"),
+            (SatelliteId::glonass(GloSlot::new(3).unwrap()), "GLO10"),
+            (SatelliteId::gps(GpsPrn::new(7).unwrap()), "GPS07"),
+            (SatelliteId::galileo(GalSvn::new(1).unwrap()), "GAL01"),
+            (SatelliteId::beidou(BdsPrn::new(12).unwrap()), "BDS12"),
         ];
 
         for (sid, expected) in satellites {

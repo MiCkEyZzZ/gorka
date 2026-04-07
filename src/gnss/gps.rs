@@ -127,7 +127,7 @@ mod tests {
     fn make_gps() -> GpsSample {
         GpsSample {
             timestamp_ms: 1_700_000_000_000,
-            prn: GpsPrn(7),
+            prn: GpsPrn::new(7).unwrap(),
             cn0_dbhz: DbHz(42),
             pseudorange_mm: Millimeter::new(22_000_000_000),
             doppler_millihz: MilliHz::new(1_500_000),
@@ -165,23 +165,29 @@ mod tests {
 
     #[test]
     fn test_validate_bad_prn() {
+        let prn_result = GpsPrn::new(33);
+
+        assert!(prn_result.is_err());
+        assert!(matches!(prn_result, Err(GorkaError::InvalidPrn(33))));
+
+        // Если нужен GpsSample для других тестов, используй валидный PRN
         let s = GpsSample {
-            prn: GpsPrn(33),
+            prn: GpsPrn::new(1).unwrap(), // валидное значение
             ..make_gps()
         };
 
-        assert!(matches!(s.validate(), Err(GorkaError::InvalidPrn(33))));
-        assert!(!s.is_valid());
+        // Проверка is_valid для валидного объекта
+        assert!(s.is_valid());
     }
 
     #[test]
     fn test_prn_boundary() {
         let s_min = GpsSample {
-            prn: GpsPrn(1),
+            prn: GpsPrn::new(1).unwrap(),
             ..make_gps()
         };
         let s_max = GpsSample {
-            prn: GpsPrn(32),
+            prn: GpsPrn::new(32).unwrap(),
             ..make_gps()
         };
 

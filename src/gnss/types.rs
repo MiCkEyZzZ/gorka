@@ -13,6 +13,7 @@ use crate::GorkaError;
 /// # Usage
 /// Use `MilliHz` for Doppler / carrier offsets. Convert to `f64` Hz only for
 /// display/debug.
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MilliHz(pub i32);
 
@@ -28,6 +29,7 @@ pub struct MilliHz(pub i32);
 /// # Usage
 /// Prefer `Millimeter` for all range/pseudorange fields. Convert to `f64` m for
 /// display/debug.
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub struct Millimeter(pub i64);
 
@@ -41,6 +43,7 @@ pub struct Millimeter(pub i64);
 ///
 /// # Usage
 /// Can be used in calculations or conversions, display as `f64` Hz if needed.
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Hertz(pub i64);
 
@@ -52,6 +55,7 @@ pub struct Hertz(pub i64);
 /// # Usage
 /// Use this type for all C/N₀ fields in GNSS observations.
 /// Convert to `f32` or `f64` only if needed for calculations or plotting.
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DbHz(pub u8);
 
@@ -63,8 +67,9 @@ pub struct DbHz(pub u8);
 /// # Usage
 /// Use [`GpsPrn::new`] to construct with validation. Retrieve inner value via
 /// [`GpsPrn::get`].
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct GpsPrn(pub u8);
+pub struct GpsPrn(u8);
 
 /// Galileo satellite SVN (space vehicle number).
 ///
@@ -74,8 +79,9 @@ pub struct GpsPrn(pub u8);
 /// # Usage
 /// Use [`GalSvn::new`] to construct with validation. Retrieve inner value via
 /// [`GalSvn::get`].
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct GalSvn(pub u8);
+pub struct GalSvn(u8);
 
 /// BDS satellite PRN (pseudo-random number) identifier.
 ///
@@ -85,8 +91,9 @@ pub struct GalSvn(pub u8);
 /// # Usage
 /// Use [`BdsPrn::new`] to construct with validation. Retrieve inner value via
 /// [`BdsPrn::get`]
+#[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BdsPrn(pub u8);
+pub struct BdsPrn(u8);
 
 /// GLONASS satellite frequency slot.
 ///
@@ -96,8 +103,9 @@ pub struct BdsPrn(pub u8);
 /// # Usage
 /// Use [`GloSlot::new`] to construct with validation. Retrieve inner value via
 /// [`GloSlot::get`].
+#[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct GloSlot(pub i8);
+pub struct GloSlot(i8);
 
 impl Millimeter {
     /// Creates a new [`Millimeter`] from a raw `i64` millimetre value.
@@ -120,7 +128,7 @@ impl Millimeter {
     }
 
     /// Converts the value to meters as `f64`
-    pub fn as_m(self) -> f64 {
+    pub const fn as_m(self) -> f64 {
         self.0 as f64 / 1000.0
     }
 }
@@ -154,7 +162,7 @@ impl MilliHz {
     }
 
     /// Converts the value to hertz as `f64`.
-    pub fn as_hz(self) -> f64 {
+    pub const fn as_hz(self) -> f64 {
         self.0 as f64 / 1000.0
     }
 }
@@ -177,6 +185,14 @@ impl Hertz {
 }
 
 impl DbHz {
+    pub const fn is_tracked(self) -> bool {
+        self.0 >= 20
+    }
+
+    pub const fn is_strong(self) -> bool {
+        self.0 >= 40
+    }
+
     /// Returns the raw C/N₀ value in dB-Hz.
     pub const fn get(self) -> u8 {
         self.0
@@ -427,5 +443,62 @@ mod tests {
 
         assert_eq!(low.get(), 0);
         assert_eq!(high.get(), 60);
+    }
+
+    #[test]
+    fn test_millihz_abs_and_as_hz() {
+        let hz = MilliHz::new(-1_500);
+
+        assert_eq!(hz.abs().as_i32(), 1_500);
+        assert_eq!(hz.as_hz(), -1.5);
+
+        let hz2 = MilliHz::new(2_500);
+
+        assert_eq!(hz2.as_hz(), 2.5);
+    }
+
+    #[test]
+    fn test_dbhz_tracking_and_strength() {
+        let weak = DbHz(10);
+        let tracked = DbHz(25);
+        let strong = DbHz(45);
+
+        assert!(!weak.is_tracked());
+        assert!(tracked.is_tracked());
+        assert!(strong.is_tracked());
+
+        assert!(!weak.is_strong());
+        assert!(!tracked.is_strong());
+        assert!(strong.is_strong());
+    }
+
+    #[test]
+    fn test_hertz_methods() {
+        let h = Hertz::new(1_000_000);
+
+        assert_eq!(h.as_i64(), 1_000_000);
+        assert_eq!(h.as_f64(), 1_000_000.0);
+    }
+
+    #[test]
+    fn test_millimeter_ordering_edge() {
+        let a = Millimeter::new(-100);
+        let b = Millimeter::new(0);
+        let c = Millimeter::new(100);
+
+        assert!(a < b);
+        assert!(b < c);
+        assert!(a < c);
+    }
+
+    #[test]
+    fn test_millihz_ordering_edge() {
+        let a = MilliHz::new(-1_000_000);
+        let b = MilliHz::new(0);
+        let c = MilliHz::new(1_000_000);
+
+        assert!(a < b);
+        assert!(b < c);
+        assert!(a < c);
     }
 }

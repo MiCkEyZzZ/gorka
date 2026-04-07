@@ -123,7 +123,7 @@ mod tests {
     fn make_gal() -> GalileoSample {
         GalileoSample {
             timestamp_ms: 1_700_000_000_000,
-            svn: GalSvn(11),
+            svn: GalSvn::new(11).unwrap(),
             cn0_dbhz: DbHz(40),
             pseudorange_mm: Millimeter::new(24_000_000_000),
             doppler_millihz: MilliHz::new(2_000_000),
@@ -160,24 +160,18 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_bad_svn() {
-        let s = GalileoSample {
-            svn: GalSvn(37),
-            ..make_gal()
-        };
-
-        assert!(matches!(s.validate(), Err(GorkaError::InvalidSvn(37))));
-        assert!(!s.is_valid());
+    fn test_gal_svn_invalid() {
+        assert!(GalSvn::new(37).is_err());
     }
 
     #[test]
     fn test_svn_boundary() {
         let s_min = GalileoSample {
-            svn: GalSvn(GalSvn::MIN),
+            svn: GalSvn::new(GalSvn::MIN).unwrap(),
             ..make_gal()
         };
         let s_max = GalileoSample {
-            svn: GalSvn(GalSvn::MAX),
+            svn: GalSvn::new(GalSvn::MAX).unwrap(),
             ..make_gal()
         };
 
