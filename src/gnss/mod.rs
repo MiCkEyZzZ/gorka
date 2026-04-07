@@ -20,6 +20,7 @@ pub mod constellation;
 ///   only for display and are gated behind the `std` feature flag.
 pub mod frame;
 pub mod glonass;
+pub mod gps;
 pub mod measurement;
 pub mod types;
 
