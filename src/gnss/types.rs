@@ -1,3 +1,5 @@
+use crate::GorkaError;
+
 /// Distance expressed as an integer number of **millimetres**.
 ///
 /// Using an integer newtype instead of `f64` ensures lossless arithmetic
@@ -32,6 +34,24 @@ pub struct MilliHz(pub i32);
 /// [`crate::gnss::glonass::GlonassSample::doppler_hz_approx`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Millimeter(pub i64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Hertz(pub i64);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GpsPrn(pub u8);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GalSvn(pub u8);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BdsPrn(pub u8);
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct GloSlot(pub i8);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct DbHz(pub u8);
 
 // Временно добавлены вспомогательные методы для newtype.
 // TODO: заменить на более идиоматичный API (конверсии или trait-методы)
@@ -82,5 +102,58 @@ impl MilliHz {
     /// checking whether a Doppler shift exceeds a threshold.
     pub fn abs(self) -> Self {
         Self(self.0.abs())
+    }
+}
+
+impl GpsPrn {
+    pub const MIN: u8 = 1;
+    pub const MAX: u8 = 32;
+
+    pub fn new(value: u8) -> Result<Self, GorkaError> {
+        if (Self::MIN..=Self::MAX).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(GorkaError::InvalidPrn(value))
+        }
+    }
+
+    pub const fn get(self) -> u8 {
+        self.0
+    }
+}
+
+impl GalSvn {
+    pub const fn get(self) -> u8 {
+        self.0
+    }
+}
+
+impl BdsPrn {
+    pub const fn get(self) -> u8 {
+        self.0
+    }
+}
+
+impl GloSlot {
+    pub const MIN: i8 = -7;
+    pub const MAX: i8 = 6;
+
+    pub fn new(slot: i8) -> Result<Self, GorkaError> {
+        if (Self::MIN..=Self::MAX).contains(&slot) {
+            Ok(Self(slot))
+        } else {
+            Err(GorkaError::InvalidSlot(slot))
+        }
+    }
+
+    #[inline]
+    pub fn get(self) -> i8 {
+        self.0
+    }
+}
+
+impl DbHz {
+    pub const fn get(self) -> u8 {
+        self.0
     }
 }
