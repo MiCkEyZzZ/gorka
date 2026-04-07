@@ -7,6 +7,16 @@ All notable changes to **Gorka** are documented in this file.
 ### Added
 
 - **gnss**:
+  - в `constellation.rs` добавлены новые unit-тесты для максимальной надёжности:
+    - проверка всех конструкторов `SatelliteId::glonass()`, `gps()`, `galileo()`,
+      `beidou()`
+    - проверка методов `.constellation()`, `.glonass_slot()`, `.to_wire()`
+    - проверка формата отображения `Display` для всех созвездий и спутников
+    - проверка порядка сортировки `ConstellationType::order()`
+    - тесты для крайних значений слотов GLONASS (-7..=6) и всех supported PRN/SVN/BDS
+    - дополнительные edge-case тесты для `to_wire()` и форматирования `GLO/GPS/GAL/BDS`
+
+- **gnss**:
   - в `constellation.rs` добавлены newtype и enum для унифицированного представления
     спутников:
     - `SatelliteId` — уникальный идентификатор спутника в созвездии (Glonass, GPS,

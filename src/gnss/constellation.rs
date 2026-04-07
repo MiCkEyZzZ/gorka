@@ -216,4 +216,83 @@ mod tests {
         let glo = SatelliteId::glonass(GloSlot(1));
         assert_eq!(glo.to_wire(), (ConstellationType::Glonass, 8));
     }
+
+    #[test]
+    fn test_glonass_slot_edges() {
+        let min_slot = SatelliteId::glonass(GloSlot(-7));
+        let max_slot = SatelliteId::glonass(GloSlot(6));
+
+        assert_eq!(min_slot.glonass_slot(), Some(GloSlot(-7)));
+        assert_eq!(min_slot.to_wire(), (ConstellationType::Glonass, 0));
+        assert_eq!(max_slot.glonass_slot(), Some(GloSlot(6)));
+        assert_eq!(max_slot.to_wire(), (ConstellationType::Glonass, 13))
+    }
+
+    #[test]
+    fn test_display_glonass_edges() {
+        assert_eq!(
+            alloc::format!("{}", SatelliteId::glonass(GloSlot(-7))),
+            "GLO00"
+        );
+        assert_eq!(
+            alloc::format!("{}", SatelliteId::glonass(GloSlot(6))),
+            "GLO13"
+        );
+    }
+
+    #[test]
+    fn test_all_constellations_to_wire_and_constellation() {
+        let satellites: [(SatelliteId, ConstellationType, u8); 4] = [
+            (
+                SatelliteId::glonass(GloSlot(0)),
+                ConstellationType::Glonass,
+                7,
+            ),
+            (SatelliteId::gps(GpsPrn(32)), ConstellationType::Gps, 32),
+            (
+                SatelliteId::galileo(GalSvn(0)),
+                ConstellationType::Galileo,
+                0,
+            ),
+            (
+                SatelliteId::beidou(BdsPrn(10)),
+                ConstellationType::Beidou,
+                10,
+            ),
+        ];
+
+        for (sid, ctype, code) in satellites {
+            assert_eq!(sid.constellation(), ctype);
+            assert_eq!(sid.to_wire(), (ctype, code));
+        }
+    }
+
+    #[test]
+    fn test_display_all_constellations() {
+        let satellites: [(SatelliteId, &str); 4] = [
+            (SatelliteId::glonass(GloSlot(3)), "GLO10"),
+            (SatelliteId::gps(GpsPrn(7)), "GPS07"),
+            (SatelliteId::galileo(GalSvn(1)), "GAL01"),
+            (SatelliteId::beidou(BdsPrn(12)), "BDS12"),
+        ];
+
+        for (sid, expected) in satellites {
+            assert_eq!(alloc::format!("{}", sid), expected);
+        }
+    }
+
+    #[test]
+    fn test_is_fdma() {
+        assert!(ConstellationType::Glonass.is_fdma());
+        assert!(!ConstellationType::Gps.is_fdma());
+        assert!(!ConstellationType::Galileo.is_fdma());
+        assert!(!ConstellationType::Beidou.is_fdma());
+    }
+
+    #[test]
+    fn test_constellation_ordering() {
+        assert!(ConstellationType::Glonass.order() < ConstellationType::Gps.order());
+        assert!(ConstellationType::Gps.order() < ConstellationType::Galileo.order());
+        assert!(ConstellationType::Galileo.order() < ConstellationType::Beidou.order());
+    }
 }
