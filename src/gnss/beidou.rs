@@ -20,9 +20,9 @@ pub struct BeidouSample {
 }
 
 impl BeidouSample {
-    pub const PSEUDORANGE_MIN_MM: Millimeter = Millimeter(21_500_000_000);
-    pub const PSEUDORANGE_MAX_MM: Millimeter = Millimeter(42_000_000_000);
-    pub const DOPPLER_MAX_MILLIHZ: MilliHz = MilliHz(5_000_000);
+    pub const PSEUDORANGE_MIN_MM: Millimeter = Millimeter::new(21_500_000_000);
+    pub const PSEUDORANGE_MAX_MM: Millimeter = Millimeter::new(42_000_000_000);
+    pub const DOPPLER_MAX_MILLIHZ: MilliHz = MilliHz::new(5_000_000);
 
     pub fn validate_prn(&self) -> Result<(), GorkaError> {
         let prn = self.prn.get();
@@ -130,6 +130,7 @@ mod tests {
     #[test]
     fn test_valid_beidou_sample() {
         let sample = make_bds();
+
         assert!(sample.is_valid());
         assert!(sample.validate().is_ok());
     }
@@ -137,7 +138,9 @@ mod tests {
     #[test]
     fn test_invalid_prn() {
         let mut sample = make_bds();
+
         sample.prn = BdsPrn(100); // вне допустимого диапазона
+
         assert!(!sample.is_valid_prn());
         assert!(sample.validate().is_err());
     }
@@ -145,7 +148,9 @@ mod tests {
     #[test]
     fn test_invalid_pseudorange() {
         let mut sample = make_bds();
+
         sample.pseudorange_mm = Millimeter::new(50_000_000_000); // слишком большой
+
         assert!(!sample.is_valid_pseudorange());
         assert!(sample.validate().is_err());
     }
@@ -153,7 +158,9 @@ mod tests {
     #[test]
     fn test_invalid_doppler() {
         let mut sample = make_bds();
+
         sample.doppler_millihz = MilliHz::new(6_000_000); // слишком большой
+
         assert!(!sample.is_valid_doppler());
         assert!(sample.validate().is_err());
     }
@@ -162,6 +169,7 @@ mod tests {
     fn test_satellite_id() {
         let sample = make_bds();
         let sat_id = sample.satellite_id();
+
         match sat_id {
             SatelliteId::Beidou(prn) => assert_eq!(prn, sample.prn),
             _ => panic!("Expected Beidou satellite"),

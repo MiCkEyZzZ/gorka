@@ -119,6 +119,7 @@ impl Millimeter {
         self.0
     }
 
+    /// Converts the value to meters as `f64`
     pub fn as_m(self) -> f64 {
         self.0 as f64 / 1000.0
     }
@@ -152,26 +153,31 @@ impl MilliHz {
         Self(self.0.abs())
     }
 
+    /// Converts the value to hertz as `f64`.
     pub fn as_hz(self) -> f64 {
         self.0 as f64 / 1000.0
     }
 }
 
 impl Hertz {
+    /// Creates a new [`Hertz`] from a raw `i64` value.
     pub const fn new(value: i64) -> Self {
         Self(value)
     }
 
+    /// Returns the raw inner value in hertz.
     pub const fn as_i64(self) -> i64 {
         self.0
     }
 
+    /// Converts the value to `f64`.
     pub const fn as_f64(self) -> f64 {
         self.0 as f64
     }
 }
 
 impl DbHz {
+    /// Returns the raw C/N₀ value in dB-Hz.
     pub const fn get(self) -> u8 {
         self.0
     }
@@ -181,6 +187,10 @@ impl GpsPrn {
     pub const MIN: u8 = 1;
     pub const MAX: u8 = 32;
 
+    /// Creates a validated [`GpsPrn`].
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidPrn`] if value is outside valid range.
     pub fn new(prn: u8) -> Result<Self, GorkaError> {
         if (Self::MIN..=Self::MAX).contains(&prn) {
             Ok(Self(prn))
@@ -189,6 +199,7 @@ impl GpsPrn {
         }
     }
 
+    /// Returns the PRN value.
     pub const fn get(self) -> u8 {
         self.0
     }
@@ -198,6 +209,10 @@ impl GalSvn {
     pub const MIN: u8 = 1;
     pub const MAX: u8 = 36;
 
+    /// Creates a validated [`GalSvn`].
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidSvn`] if value is outside valid range.
     pub fn new(svn: u8) -> Result<Self, GorkaError> {
         if (Self::MIN..=Self::MAX).contains(&svn) {
             Ok(Self(svn))
@@ -206,6 +221,7 @@ impl GalSvn {
         }
     }
 
+    /// Returns the SVN value.
     pub const fn get(self) -> u8 {
         self.0
     }
@@ -215,6 +231,10 @@ impl BdsPrn {
     pub const MIN: u8 = 1;
     pub const MAX: u8 = 63;
 
+    /// Creates a validated [`BdsPrn`].
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidPrn`] if value is outside valid range.
     pub fn new(prn: u8) -> Result<Self, GorkaError> {
         if (Self::MIN..=Self::MAX).contains(&prn) {
             Ok(Self(prn))
@@ -223,6 +243,7 @@ impl BdsPrn {
         }
     }
 
+    /// Returns the PRN value.
     pub const fn get(self) -> u8 {
         self.0
     }
@@ -232,6 +253,10 @@ impl GloSlot {
     pub const MIN: i8 = -7;
     pub const MAX: i8 = 6;
 
+    /// Creates a validated [`GloSlot`].
+    ///
+    /// # Errors
+    /// Returns [`GorkaError::InvalidSlot`] if value is outside valid range.
     pub fn new(slot: i8) -> Result<Self, GorkaError> {
         if (Self::MIN..=Self::MAX).contains(&slot) {
             Ok(Self(slot))
@@ -240,7 +265,7 @@ impl GloSlot {
         }
     }
 
-    #[inline]
+    /// Returns the frequency slot value.
     pub const fn get(self) -> i8 {
         self.0
     }
