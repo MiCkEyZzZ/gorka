@@ -2,6 +2,48 @@
 
 All notable changes to **Gorka** are documented in this file.
 
+## [Unreleased] — 0000-00-00
+
+### Added
+
+- **gnss**:
+  - в `constellation.rs` добавлены newtype и enum для унифицированного представления
+    спутников:
+    - `SatelliteId` — уникальный идентификатор спутника в созвездии (Glonass, GPS,
+      Galileo, Beidou)
+    - `ConstellationType` — тип созвездия, с методами:
+      - `abbrev()` — краткий ASCII идентификатор ("GLO", "GPS", "GAL", "BDS")
+      - `is_fdma()` — true для GLONASS (FDMA)
+      - `order()` — порядок сортировки созвездий
+
+    - методы-конструкторы: `SatelliteId::glonass()`, `gps()`, `galileo()`, `beidou()`
+    - вспомогательные методы:
+      - `SatelliteId::constellation()`
+      - `SatelliteId::glonass_slot()`
+      - `SatelliteId::to_wire()` — сериализация для wire формата
+
+    - реализованы `Display` для удобного форматирования спутников и созвездий
+
+  - юнит-тесты для всех методов, конструкторов и отображения (`Display`, `to_wire`,
+    `order`)
+
+### Changed
+
+- **gnss**:
+  - в `types.rs` расширены newtype для единиц измерений и GNSS идентификаторов:
+    - `Millimeter` — расстояние в миллиметрах (i64)
+    - `MilliHz` — частота в миллигц (i32)
+    - `Hertz` — частота в герцах (i64)
+    - `GpsPrn` — идентификатор GPS спутника (u8), с `MIN/MAX` и методом-конструктором
+      `new()`
+    - `GalSvn` — идентификатор Galileo спутника (u8)
+    - `BdsPrn` — идентификатор Beidou спутника (u8)
+    - `GloSlot` — слот GLONASS (i8), с `MIN/MAX` и методом-конструктором `new()`
+    - `DbHz` — интенсивность сигнала в dBHz (u8)
+  - добавлены вспомогательные методы:
+    - `.new()` и `.as_i64()/as_i32()/get()` для всех newtype
+    - `MilliHz::abs()` для получения абсолютного значения
+
 ## [v0.4.1] — 2026-04-06
 
 ### Added

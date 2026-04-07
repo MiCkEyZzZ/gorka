@@ -1,3 +1,4 @@
+pub mod constellation;
 /// GNSS observation types and frame assembly for the gorka positioning engine.
 ///
 /// This module provides the core data structures for working with raw GNSS
@@ -21,6 +22,7 @@ pub mod frame;
 pub mod glonass;
 pub mod types;
 
+pub use constellation::*;
 pub use frame::*;
 pub use glonass::*;
 pub use types::*;

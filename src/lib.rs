@@ -85,4 +85,7 @@ pub use codec::{
     STREAM_ENCODER_MIN_BUF_NO_PHASE, STREAM_ENCODER_MIN_BUF_WITH_PHASE,
 };
 pub use error::GorkaError;
-pub use gnss::{GlonassSample, GnssFrame, MilliHz, Millimeter, MAX_GLONASS_SATS};
+pub use gnss::{
+    BdsPrn, ConstellationType, DbHz, GalSvn, GloSlot, GlonassSample, GnssFrame, GpsPrn, Hertz,
+    MilliHz, Millimeter, SatelliteId, MAX_GLONASS_SATS,
+};
