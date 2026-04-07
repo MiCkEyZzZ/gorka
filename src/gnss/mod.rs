@@ -19,6 +19,7 @@ pub mod constellation;
 ///   errors in the hot path.  `f64` helpers (`*_approx` methods) are provided
 ///   only for display and are gated behind the `std` feature flag.
 pub mod frame;
+pub mod galileo;
 pub mod glonass;
 pub mod gps;
 pub mod measurement;
@@ -27,5 +28,6 @@ pub mod types;
 pub use constellation::*;
 pub use frame::*;
 pub use glonass::*;
+pub use gps::*;
 pub use measurement::*;
 pub use types::*;
