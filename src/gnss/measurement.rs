@@ -79,7 +79,7 @@ mod tests {
     fn make_sample() -> GnssSample {
         GnssSample {
             timestamp_ms: 1_700_000_000_000,
-            satellite_id: SatelliteId::gps(GpsPrn(7)),
+            satellite_id: SatelliteId::gps(GpsPrn::new(7).unwrap()),
             cn0_dbhz: DbHz(42),
             pseudorange_mm: Millimeter::new(22_000_000_000),
             doppler_millihz: MilliHz::new(1_500_000),

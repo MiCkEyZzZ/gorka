@@ -120,6 +120,14 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Changed
 
+- **gnss/types**
+  - `GalSvn::new()` теперь корректно возвращает `Err(GorkaError::InvalidSvn(_))`
+    для некорректных значений.
+  - удалён костыльный конструктор `from_raw()` для тестов; тесты теперь используют
+    безопасный конструктор `new()`.
+  - добавлен unit-тест `test_gal_svn_invalid` для проверки невозможности создания
+    некорректного SVN.
+
 - **gnss**:
   - в `types.rs` расширены newtype для единиц измерений и GNSS идентификаторов:
     - `Millimeter` — расстояние в миллиметрах (i64)
