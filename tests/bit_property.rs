@@ -1,5 +1,5 @@
 #[allow(deprecated)]
-use gorka::{BitReader, BitWriter};
+use gorka::prelude::*;
 use proptest::prelude::*;
 
 proptest! {
