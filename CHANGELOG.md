@@ -6,6 +6,21 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **gnss/beidou**:
+  - добавлена реализация `BeidouSample`:
+    - структура `BeidouSample` с полями: `timestamp_ms`, `prn`, `cn0_dbhz`,
+      `pseudorange_mm`, `doppler_millihz`, `carrier_phase_cycles`.
+    - константы частот: `BDS_B1I_FREQ`, `BDS_B1C_FREQ`, `BDS_B2A_FREQ`.
+    - методы валидации:
+      - `validate_prn()`, `validate_pseudorange()`, `validate_doppler()`
+      - комплексная проверка `validate()`, булевы методы `is_valid_*()`.
+    - реализация трейта `GnssMeasurement`.
+    - unit-тесты:
+      - проверка корректности PRN, псевдодальности, допплера.
+      - boundary cases для PRN, псевдодальности и допплера.
+      - проверка метода `satellite_id()` и соответствия `ConstellationType::Beidou`.
+      - проверка корректности частот (`BDS_B1I_FREQ`, `BDS_B1C_FREQ`, `BDS_B2A_FREQ`).
+
 - **gnss/galileo**:
   - добавлена реализация `GalileoSample`:
     - структура `GalileoSample` с полями: `timestamp_ms`, `svn`, `cn0_dbhz`,
