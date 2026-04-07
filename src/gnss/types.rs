@@ -28,7 +28,7 @@ pub struct MilliHz(pub i32);
 /// # Usage
 /// Prefer `Millimeter` for all range/pseudorange fields. Convert to `f64` m for
 /// display/debug.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd)]
 pub struct Millimeter(pub i64);
 
 /// Frequency expressed as an integer number of **hertz** (Hz).
