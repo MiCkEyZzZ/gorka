@@ -61,7 +61,7 @@ Minimal example:
 
 ```rust
 use gorka::{
-    codec::{GlonassEncoder, GlonassDecoder},
+    GlonassEncoder, GlonassDecoder,
     GlonassSample, MilliHz, Millimeter,
 };
 
@@ -88,7 +88,10 @@ assert_eq!(samples, decoded); // bitwise identical
 ### Basic Encode/Decode
 
 ```rust
-use gorka::{codec::{GlonassEncoder, GlonassDecoder}, GlonassSample, MilliHz, Millimeter};
+use gorka::{
+  GlonassEncoder, GlonassDecoder,
+  GlonassSample, MilliHz, Millimeter
+};
 
 let base_ts: u64 = 1_700_000_000_000;
 
@@ -115,8 +118,7 @@ println!("Compression ratio: {ratio:.1}×"); // typically 4–7×
 
 ```rust
 use gorka::{
-    codec::GlonassEncoder,
-    io::ChunkWriter,
+    GlonassEncoder, ChunkWriter,
     GlonassSample, MilliHz, Millimeter,
 };
 use std::{fs, io::BufWriter};
@@ -145,7 +147,7 @@ println!("Written {} chunks", w.chunks_written());
 ### Streaming from File
 
 ```rust
-use gorka::{codec::GlonassDecoder, io::ChunkReader};
+use gorka::{GlonassDecoder, ChunkReader};
 use std::{fs, io::Read};
 
 let mut data = Vec::new();
