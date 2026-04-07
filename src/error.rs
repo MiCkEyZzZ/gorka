@@ -23,6 +23,9 @@ pub enum GorkaError {
     /// Invalid satellite PRN (out of allowed range)
     InvalidPrn(u8),
 
+    /// Invalid satellite SVN (out of allowed range)
+    InvalidSvn(u8),
+
     /// Invalid C/N0 value (carrier-to-noise ratio)
     /// Typically expected to be within a range like [0..=60] dB-Hz
     /// (implementation-dependent)
@@ -80,7 +83,10 @@ impl fmt::Display for GorkaError {
                 write!(f, "GLONASS slot k={k} out of range [-7, +6]")
             }
             Self::InvalidPrn(prn) => {
-                write!(f, "invalid satellite PRN: {prn}")
+                write!(f, "invalid GPS/BeiDou PRN: {prn}")
+            }
+            Self::InvalidSvn(svn) => {
+                write!(f, "invalid Galileo SVN: {svn}")
             }
             Self::InvalidCn0(cn0) => {
                 write!(f, "invalid C/N0 value: {cn0} dB-Hz")
