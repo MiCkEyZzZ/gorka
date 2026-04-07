@@ -6,7 +6,25 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
-- **gnss**:
+- **gnss/types**:
+  - Добавлены newtype для единиц измерения и GNSS идентификаторов:
+    - `Millimeter` — расстояние в миллиметрах (`i64`), с методом `new()` и `as_i64()`.
+    - `MilliHz` — частота в миллигерцах (`i32`), с методами `new()`, `as_i32()` и
+      `abs()`.
+    - `Hertz` — частота в герцах (`i64`).
+    - `GpsPrn` — идентификатор GPS спутника (`u8`), с `MIN/MAX`, `new()` и `get()`.
+    - `GalSvn` — идентификатор Galileo спутника (`u8`), с `get()`.
+    - `BdsPrn` — идентификатор Beidou спутника (`u8`), с `get()`.
+    - `GloSlot` — слот GLONASS (`i8`), с `MIN/MAX`, `new()` и `get()`.
+    - `DbHz` — интенсивность сигнала (`u8`), с `get()`.
+
+  - Методы-конструкторы (`new()`) проверяют диапазон и возвращают `GorkaError`
+    при некорректном значении.
+  - Все newtype имеют геттеры для безопасного извлечения внутреннего значения.
+  - Использование integer newtype вместо `f64` / float обеспечивает точность и
+    предотвращает потери при арифметике и сравнении.
+
+* **gnss**:
   - в `constellation.rs` добавлены новые unit-тесты для максимальной надёжности:
     - проверка всех конструкторов `SatelliteId::glonass()`, `gps()`, `galileo()`,
       `beidou()`
@@ -16,7 +34,7 @@ All notable changes to **Gorka** are documented in this file.
     - тесты для крайних значений слотов GLONASS (-7..=6) и всех supported PRN/SVN/BDS
     - дополнительные edge-case тесты для `to_wire()` и форматирования `GLO/GPS/GAL/BDS`
 
-- **gnss**:
+* **gnss**:
   - в `constellation.rs` добавлены newtype и enum для унифицированного представления
     спутников:
     - `SatelliteId` — уникальный идентификатор спутника в созвездии (Glonass, GPS,
