@@ -9,7 +9,7 @@ If you discover a potential security vulnerability in Gorka, please do **not**
 open a public issue. Instead, contact the maintainers privately via email:
 
 ```text
-[zedmfix@gmail.com](mailto:zedmfix@gmail.com)
+zedmfix@gmail.com
 ```
 
 Provide as much information as possible, including:
