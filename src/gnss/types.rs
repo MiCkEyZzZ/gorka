@@ -53,8 +53,6 @@ pub struct GloSlot(pub i8);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DbHz(pub u8);
 
-// Временно добавлены вспомогательные методы для newtype.
-// TODO: заменить на более идиоматичный API (конверсии или trait-методы)
 impl Millimeter {
     /// Creates a new [`Millimeter`] from a raw `i64` millimetre value.
     ///
