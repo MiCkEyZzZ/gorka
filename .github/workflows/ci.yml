@@ -40,7 +40,7 @@ jobs:
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
-          arguments: --all-features # <-- убрали повторный --log-level
+          arguments: --all-features
 
       - name: Run fmt
         run: cargo fmt --all -- --check
