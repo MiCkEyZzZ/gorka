@@ -17,9 +17,9 @@ pub struct GpsSample {
 }
 
 impl GpsSample {
-    pub const PSEUDORANGE_MIN_MM: Millimeter = Millimeter(20_200_000_000);
-    pub const PSEUDORANGE_MAX_MM: Millimeter = Millimeter(25_600_000_000);
-    pub const DOPPLER_MAX_MILLIHZ: MilliHz = MilliHz(6_000_000);
+    pub const PSEUDORANGE_MIN_MM: Millimeter = Millimeter::new(20_200_000_000);
+    pub const PSEUDORANGE_MAX_MM: Millimeter = Millimeter::new(25_600_000_000);
+    pub const DOPPLER_MAX_MILLIHZ: MilliHz = MilliHz::new(6_000_000);
 
     #[inline]
     pub fn validate_prn(&self) -> Result<(), GorkaError> {

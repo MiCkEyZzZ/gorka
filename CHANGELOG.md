@@ -6,6 +6,13 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **gnss/types**
+  - добавлены тесты для MilliHz::as_hz и Millimeter::as_m
+  - добавлены тесты упорядочивания для MilliHz и Millimeter
+  - добавлены явные граничные тесты для идентификаторов спутников
+  - добавлены тесты отрицательных значений для Millimeter
+  - улучшена общая устойчивость инвариантов на уровне типов
+
 - **gnss/beidou**:
   - добавлена реализация `BeidouSample`:
     - структура `BeidouSample` с полями: `timestamp_ms`, `prn`, `cn0_dbhz`,

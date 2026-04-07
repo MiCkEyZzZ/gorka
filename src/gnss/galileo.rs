@@ -20,9 +20,9 @@ pub struct GalileoSample {
 }
 
 impl GalileoSample {
-    pub const PSEUDORANGE_MIN_MM: Millimeter = Millimeter(23_222_000_000);
-    pub const PSEUDORANGE_MAX_MM: Millimeter = Millimeter(29_000_000_000);
-    pub const DOPPLER_MAX_MILLIHZ: MilliHz = MilliHz(4_500_000);
+    pub const PSEUDORANGE_MIN_MM: Millimeter = Millimeter::new(23_222_000_000);
+    pub const PSEUDORANGE_MAX_MM: Millimeter = Millimeter::new(29_000_000_000);
+    pub const DOPPLER_MAX_MILLIHZ: MilliHz = MilliHz::new(4_500_000);
 
     #[inline]
     pub fn validate_svn(&self) -> Result<(), GorkaError> {
