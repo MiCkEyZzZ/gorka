@@ -1,3 +1,4 @@
+pub mod beidou;
 pub mod constellation;
 /// GNSS observation types and frame assembly for the gorka positioning engine.
 ///
@@ -27,6 +28,7 @@ pub mod types;
 
 pub use constellation::*;
 pub use frame::*;
+pub use galileo::*;
 pub use glonass::*;
 pub use gps::*;
 pub use measurement::*;
