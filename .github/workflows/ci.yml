@@ -22,17 +22,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
   checks:
     name: Checks (fmt, clippy, deny, doc)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install nightly toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          components: rustfmt, clippy
+          toolchain: nightly-2026-02-14
+          override: true
+          components: rustfmt, clippy, rust-src, rust-analyzer
 
       - uses: Swatinem/rust-cache@v2
 
