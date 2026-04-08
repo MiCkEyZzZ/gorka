@@ -6,11 +6,13 @@ on:
     paths:
       - "src/**"
       - "Cargo.toml"
+      - ".github/workflows/ci.yml"
   pull_request:
     branches: [master]
     paths:
       - "src/**"
       - "Cargo.toml"
+      - ".github/workflows/ci.yml"
   schedule:
     - cron: "0 0 * * 1"
 
@@ -29,23 +31,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install nightly toolchain for deny
-        uses: actions-rs/toolchain@v1
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2026-02-14
-          override: true
-          components: rustfmt, clippy, rust-src, rust-analyzer
+          components: rustfmt, clippy, rust-src
 
       - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
 
       - name: Fix yanked deps
         run: cargo update -p fastrand
 
       - name: Run cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
-          arguments: --all-features
+        run: cargo deny check --all-features
 
       - name: Run fmt
         run: cargo fmt --all -- --check
@@ -107,7 +108,7 @@ jobs:
       - name: Install MSRV
         uses: dtolnay/rust-toolchain@master
         with:
-          channel: "1.75.0"
+          toolchain: 1.75.0
 
       - uses: Swatinem/rust-cache@v2
 
