@@ -12,7 +12,7 @@ on:
       - "src/**"
       - "Cargo.toml"
   schedule:
-    - cron: "0 0 * * 1"
+    - cron: "0 0 * * 1" # MSRV раз в неделю
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,12 +29,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install nightly toolchain for deny
-        uses: actions-rs/toolchain@v1
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: nightly-2026-02-14
-          override: true
-          components: rustfmt, clippy, rust-src, rust-analyzer
+          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
 
