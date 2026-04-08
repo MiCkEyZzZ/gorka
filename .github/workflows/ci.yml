@@ -12,7 +12,7 @@ on:
       - "src/**"
       - "Cargo.toml"
   schedule:
-    - cron: "0 0 * * 1" # MSRV раз в неделю
+    - cron: "0 0 * * 1"
 
 env:
   CARGO_TERM_COLOR: always
