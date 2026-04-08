@@ -138,8 +138,6 @@ impl fmt::Display for GorkaError {
                 write!(f, "invalid C/N₀ value: {dbhz} dB-Hz")
             }
             Self::BufferFull => write!(f, "StreamEncoder output buffer is full; flush and retry"),
-            // NOTE: при добавлении нового варианта сюда, также добавьте Display-ветку. Компилятор
-            // выдаст warning если забудете.
         }
     }
 }
