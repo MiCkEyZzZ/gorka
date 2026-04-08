@@ -46,7 +46,7 @@ jobs:
         run: cargo update -p fastrand
 
       - name: Run cargo-deny
-        run: cargo deny check -- --all-features
+        run: cargo deny check all
 
       - name: Run fmt
         run: cargo fmt --all -- --check
