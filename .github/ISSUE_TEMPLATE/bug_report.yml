@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a bug in the Gorka GNSS time-series library
+title: "[BUG]"
+labels: [bug]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug in **Gorka**!
+        Please fill out the template below to help us reproduce and fix the issue.
+
+  - type: input
+    id: description
+    attributes:
+      label: What went wrong?
+      description: Describe the bug in detail. Include unexpected behavior, crashes, panics, or wrong compression/decompression results.
+      placeholder: e.g. `Decoder::decode_chunk` panics on valid data, or compression produces incorrect output
+
+  - type: input
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the minimal steps to reproduce the issue.
+      placeholder: |
+        1. Prepare input data or call the relevant API
+        2. Run the operation that triggers the issue
+        3. Observe panic, incorrect output, or compilation error
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Rust version, Gorka version, target platform (`no_std`?), and any relevant feature flags.
+      placeholder: e.g. Ubuntu 22.04, Rust 1.76 stable, Gorka v0.4.1, std + alloc

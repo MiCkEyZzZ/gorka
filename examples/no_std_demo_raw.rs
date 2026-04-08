@@ -98,5 +98,7 @@ fn main() {
 
     println!("\nAll no_std-compatible APIs verified ✓\n");
     println!("To use gorka without std, add to Cargo.toml:");
-    println!("  gorka = {{ version = \"0.3\", default-features = false, features = [\"alloc\"] }}");
+    println!(
+        "  gorka = {{ version = \"0.4.1\", default-features = false, features = [\"alloc\"] }}"
+    );
 }

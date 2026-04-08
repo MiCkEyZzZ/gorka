@@ -117,7 +117,9 @@ fn main() {
     println!("All no_std-compatible APIs verified ✓");
     println!();
     println!("To use gorka without std, add to Cargo.toml:");
-    println!("  gorka = {{ version = \"0.1\", default-features = false, features = [\"alloc\"] }}");
+    println!(
+        "  gorka = {{ version = \"0.4.1\", default-features = false, features = [\"alloc\"] }}"
+    );
     println!();
     println!("The gorka::io module (ChunkWriter/ChunkReader) requires std.");
 }

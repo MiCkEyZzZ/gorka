@@ -6,6 +6,23 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **.github**
+  - добавлен шаблон issue `Bug report` для удобного оформления сообщений о багах:
+    - поля: `description`, `steps`, `environment`
+    - пояснения по заполнению и placeholders для примеров
+  - добавлен файл `config.yml`:
+    - `blank_issues_enabled: false`
+    - `contact_links`:
+      - **Gorka Community Pachca** — [join link](https://app.pachca.com/join?invite_token=EakW3nIgma_ezqFc&company_name=Gorka+Community&company_id=416542), Get free help from the Gorka community
+      - **Gorka Community Discussion** — [GitHub Discussions](https://github.com/MiCkEyZzZ/gorka/discussions), Get free help from the Gorka community
+  - добавлен файл `other_stuff.yml`:
+    - шаблон **Other**:
+      - `name: Other`
+      - `about: Can't find the right issue type? Use this one!`
+      - `title: ""`
+      - `labels: ""`
+      - `assignees: ""`
+
 - **gnss/types**
   - добавлены тесты для MilliHz::as_hz и Millimeter::as_m
   - добавлены тесты упорядочивания для MilliHz и Millimeter

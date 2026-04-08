@@ -6,8 +6,12 @@ gorka
 │   └── nextest.toml
 ├── .github
 │   ├── ISSUE_TEMPLATE
-│   │   └── enhancement.yml
+│   │   ├── bug_report.yml
+│   │   ├── config.yml
+│   │   ├── enhancement.yml
+│   │   └── other_stuff.yml
 │   ├── workflows
+│   │   ├── ci.yml
 │   │   └── semantic-pull-request.yml
 │   ├── CODEOWNERS
 │   └── pull_request_template.md
@@ -53,9 +57,12 @@ gorka
 │   │   ├── stream.rs
 │   │   └── zigzag.rs
 │   ├── gnss
+│   │   ├── beidou.rs
 │   │   ├── constellation.rs
 │   │   ├── frame.rs
+│   │   ├── galileo.rs
 │   │   ├── glonass.rs
+│   │   ├── gps.rs
 │   │   ├── measurement.rs
 │   │   ├── mod.rs
 │   │   └── types.rs

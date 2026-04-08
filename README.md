@@ -2,6 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/gorka.svg)](https://crates.io/crates/gorka)
 [![docs.rs](https://docs.rs/gorka/badge.svg)](https://docs.rs/gorka)
+[![Build Status](https://github.com/MiCkEyZzZ/gorka/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MiCkEyZzZ/gorka/actions/workflows/ci.yml)
 
 **Gorka** is a high-performance Rust library for compressing and
 decompressing GNSS (Global Navigation Satellite System) time-series data.
@@ -61,14 +62,14 @@ Minimal example:
 
 ```rust
 use gorka::{
-    GlonassEncoder, GlonassDecoder,
-    GlonassSample, MilliHz, Millimeter,
+    GlonassEncoder, GlonassDecoder, DbHz,
+    GlonassSample, MilliHz, Millimeter, GloSlot
 };
 
 let samples = vec![GlonassSample {
     timestamp_ms:         1_700_000_000_000,
-    slot:                 1,          // FDMA slot k ∈ [-7, +6]
-    cn0_dbhz:             42,         // signal-to-noise, dBHz
+    slot:                 GloSlot::new(1).unwrap(), // FDMA slot k ∈ [-7, +6]
+    cn0_dbhz:             DbHz(42),                 // signal-to-noise, dBHz
     pseudorange_mm:       Millimeter::new(21_500_000_000),
     doppler_millihz:      MilliHz::new(1_200_500),
     carrier_phase_cycles: Some(123_456_789),
@@ -89,8 +90,8 @@ assert_eq!(samples, decoded); // bitwise identical
 
 ```rust
 use gorka::{
-  GlonassEncoder, GlonassDecoder,
-  GlonassSample, MilliHz, Millimeter
+  GlonassEncoder, GlonassDecoder, GloSlot,
+  GlonassSample, MilliHz, Millimeter, DbHz
 };
 
 let base_ts: u64 = 1_700_000_000_000;
@@ -98,8 +99,8 @@ let base_ts: u64 = 1_700_000_000_000;
 // Create 10 observation epochs (1 Hz, 10 seconds)
 let samples: Vec<GlonassSample> = (0..10).map(|i| GlonassSample {
     timestamp_ms:         base_ts + i * 1000,
-    slot:                 1,
-    cn0_dbhz:             42,
+    slot:                 GloSlot::new(1),
+    cn0_dbhz:             DbHz(42),
     pseudorange_mm:       Millimeter::new(21_500_000_000 + i as i64 * 100),
     doppler_millihz:      MilliHz::new(1_200_000 + i as i32 * 5),
     carrier_phase_cycles: Some(i as i64 * 65_536),
@@ -111,6 +112,7 @@ let decoded    = GlonassDecoder::decode_chunk(&compressed).unwrap();
 assert_eq!(samples, decoded);
 
 let ratio = (samples.len() * 31) as f64 / compressed.len() as f64;
+
 println!("Compression ratio: {ratio:.1}×"); // typically 4–7×
 ```
 
@@ -119,7 +121,7 @@ println!("Compression ratio: {ratio:.1}×"); // typically 4–7×
 ```rust
 use gorka::{
     GlonassEncoder, ChunkWriter,
-    GlonassSample, MilliHz, Millimeter,
+    GlonassSample, MilliHz, Millimeter, DbHz,
 };
 use std::{fs, io::BufWriter};
 
@@ -130,17 +132,19 @@ for slot in [-7i8, -3, 0, 3, 6] {
     let samples: Vec<GlonassSample> = (0..60).map(|i| GlonassSample {
         timestamp_ms:         1_700_000_000_000 + i * 1000,
         slot,
-        cn0_dbhz:             38,
+        cn0_dbhz:             DbHz(38),
         pseudorange_mm:       Millimeter::new(21_500_000_000),
         doppler_millihz:      MilliHz::new(1_000_000),
         carrier_phase_cycles: None,
     }).collect();
 
     let chunk = GlonassEncoder::encode_chunk(&samples).unwrap();
+
     w.write_chunk(&chunk).unwrap();
 }
 
 w.flush().unwrap();
+
 println!("Written {} chunks", w.chunks_written());
 ```
 
@@ -151,10 +155,12 @@ use gorka::{GlonassDecoder, ChunkReader};
 use std::{fs, io::Read};
 
 let mut data = Vec::new();
+
 fs::File::open("gnss_log.bin").unwrap().read_to_end(&mut data).unwrap();
 
 for (i, frame) in ChunkReader::new(&data).enumerate() {
     let samples = GlonassDecoder::decode_chunk(frame.unwrap()).unwrap();
+
     println!("chunk[{i}]: {} samples, slot k={:+}", samples.len(), samples[0].slot);
 }
 ```
@@ -162,7 +168,7 @@ for (i, frame) in ChunkReader::new(&data).enumerate() {
 ### GnssFrame — Single Epoch Buffer
 
 ```rust
-use gorka::{GnssFrame, GlonassSample, MilliHz, Millimeter};
+use gorka::{GnssFrame, GlonassSample, MilliHz, Millimeter, DbHz};
 
 let ts = 1_700_000_000_000u64;
 let mut frame = GnssFrame::new(ts);
@@ -170,7 +176,7 @@ let mut frame = GnssFrame::new(ts);
 for slot in [-7i8, -3, 0, 3, 6] {
     frame.push(GlonassSample {
         timestamp_ms: ts, slot,
-        cn0_dbhz: 40,
+        cn0_dbhz: DbHz(40),
         pseudorange_mm:  Millimeter::new(21_500_000_000),
         doppler_millihz: MilliHz::new(1_000_000),
         carrier_phase_cycles: None,
@@ -179,6 +185,7 @@ for slot in [-7i8, -3, 0, 3, 6] {
 
 assert_eq!(frame.len(), 5);
 let sv = frame.get_by_slot(-7).unwrap();
+
 println!("Slot -7 cn0: {} dBHz", sv.cn0_dbhz);
 
 frame.validate_all().unwrap();
@@ -187,12 +194,12 @@ frame.validate_all().unwrap();
 ### GlonassSample Helper Methods
 
 ```rust
-use gorka::{GlonassSample, MilliHz, Millimeter};
+use gorka::{GlonassSample, MilliHz, Millimeter, GloSlot, DbHz};
 
 let s = GlonassSample {
     timestamp_ms: 1_700_000_000_000,
-    slot: 1,
-    cn0_dbhz: 42,
+    slot: GloSlot::new(1),
+    cn0_dbhz: DbHz(42),
     pseudorange_mm:  Millimeter::new(21_500_000_000),
     doppler_millihz: MilliHz::new(1_200_500),
     carrier_phase_cycles: None,
@@ -262,8 +269,10 @@ use gorka::{bits::BitWrite, RawBitWriter};
 
 let mut buf = [0u8; 64];
 let mut w = RawBitWriter::new(&mut buf);
+
 w.write_bits(0b101, 3).unwrap();
 w.write_bits_signed(-42i64, 16).unwrap();
+
 let n = w.bytes_written();
 // &buf[..n] contains the encoded bits — no heap allocation
 ```

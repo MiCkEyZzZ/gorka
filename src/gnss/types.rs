@@ -57,7 +57,7 @@ pub struct Hertz(pub i64);
 /// Convert to `f32` or `f64` only if needed for calculations or plotting.
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct DbHz(pub u8);
+pub struct DbHz(u8);
 
 /// GPS satellite PRN (pseudo-random number) identifier.
 ///
@@ -185,12 +185,31 @@ impl Hertz {
 }
 
 impl DbHz {
-    pub const fn is_tracked(self) -> bool {
-        self.0 >= 20
+    pub const MIN: u8 = 0;
+    pub const MAX: u8 = 60;
+
+    /// Threshold for signal tracking (~20 db-Hz).
+    pub const TRACKED_THRESHOLD: u8 = 20;
+
+    /// Threshold for strong signal (~40 db-Hz).
+    pub const STRONG_THRESHOLD: u8 = 40;
+
+    pub fn new(value: u8) -> Result<Self, GorkaError> {
+        if (Self::MIN..=Self::MAX).contains(&value) {
+            Ok(Self(value))
+        } else {
+            Err(GorkaError::InvalidDbHz(value))
+        }
     }
 
+    #[inline(always)]
+    pub const fn is_tracked(self) -> bool {
+        self.0 >= Self::TRACKED_THRESHOLD
+    }
+
+    #[inline(always)]
     pub const fn is_strong(self) -> bool {
-        self.0 >= 40
+        self.0 >= Self::STRONG_THRESHOLD
     }
 
     /// Returns the raw C/N₀ value in dB-Hz.
@@ -368,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_dbhz_basic() {
-        let c = DbHz(42);
+        let c = DbHz::new(42).unwrap();
         assert_eq!(c.get(), 42);
     }
 
@@ -438,8 +457,8 @@ mod tests {
 
     #[test]
     fn test_dbhz_range() {
-        let low = DbHz(0);
-        let high = DbHz(60);
+        let low = DbHz::new(0).unwrap();
+        let high = DbHz::new(60).unwrap();
 
         assert_eq!(low.get(), 0);
         assert_eq!(high.get(), 60);
@@ -459,9 +478,9 @@ mod tests {
 
     #[test]
     fn test_dbhz_tracking_and_strength() {
-        let weak = DbHz(10);
-        let tracked = DbHz(25);
-        let strong = DbHz(45);
+        let weak = DbHz::new(10).unwrap();
+        let tracked = DbHz::new(25).unwrap();
+        let strong = DbHz::new(45).unwrap();
 
         assert!(!weak.is_tracked());
         assert!(tracked.is_tracked());
