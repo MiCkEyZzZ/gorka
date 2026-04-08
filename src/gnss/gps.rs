@@ -288,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_gps_frequencies() {
-        assert_eq!(GPS_L1_FREQ.0, 1_575_420_000);
-        assert_eq!(GPS_L2_FREQ.0, 1_227_600_000);
+        assert_eq!(GPS_L1_FREQ.as_i64(), 1_575_420_000);
+        assert_eq!(GPS_L2_FREQ.as_i64(), 1_227_600_000);
     }
 }

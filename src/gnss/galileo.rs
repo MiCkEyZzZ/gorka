@@ -264,8 +264,8 @@ mod tests {
 
     #[test]
     fn test_galileo_frequencies() {
-        assert_eq!(GAL_E1_FREQ.0, 1_575_420_000);
-        assert_eq!(GAL_E5A_FREQ.0, 1_176_450_000);
-        assert_eq!(GAL_E5B_FREQ.0, 1_207_140_000);
+        assert_eq!(GAL_E1_FREQ.as_i64(), 1_575_420_000);
+        assert_eq!(GAL_E5A_FREQ.as_i64(), 1_176_450_000);
+        assert_eq!(GAL_E5B_FREQ.as_i64(), 1_207_140_000);
     }
 }

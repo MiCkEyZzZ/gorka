@@ -163,8 +163,8 @@ mod tests {
         assert_eq!(s.timestamp_ms(), 1_700_000_000_000);
         assert_eq!(s.satellite_id().constellation(), ConstellationType::Gps);
         assert_eq!(s.cn0_dbhz(), DbHz::new(42).unwrap());
-        assert_eq!(s.pseudorange_mm().0, 22_000_000_000);
-        assert_eq!(s.doppler_millihz().0, 1_500_000);
+        assert_eq!(s.pseudorange_mm().as_i64(), 22_000_000_000);
+        assert_eq!(s.doppler_millihz().as_i32(), 1_500_000);
         assert_eq!(s.carrier_phase_cycles(), Some(12_345_678));
     }
 
