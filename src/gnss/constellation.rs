@@ -4,7 +4,7 @@
 //! multi-GNSS support. These types are purely decriptive and do not affect the
 //! wire format of any existing chunk.
 
-use crate::gnss::{BdsPrn, GalSvn, GloSlot, GpsPrn};
+use crate::{BdsPrn, GalSvn, GloSlot, GorkaError, GpsPrn};
 
 /// Unique satellite identifier within a constellation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -19,6 +19,7 @@ pub enum SatelliteId {
 /// GNSS constellation (access method).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[repr(u8)]
 pub enum ConstellationType {
     Glonass,
     Gps,
@@ -98,12 +99,35 @@ impl SatelliteId {
         match self {
             Self::Glonass(slot) => {
                 let k = slot.get();
-                debug_assert!((-7..=6).contains(&k));
-                (ConstellationType::Glonass, (k + 7) as u8)
+                (ConstellationType::Glonass, (k - GloSlot::MIN) as u8)
             }
             Self::Gps(prn) => (ConstellationType::Gps, prn.get()),
             Self::Galileo(svn) => (ConstellationType::Galileo, svn.get()),
             Self::Beidou(prn) => (ConstellationType::Beidou, prn.get()),
+        }
+    }
+
+    pub fn from_wire(
+        c: ConstellationType,
+        id: u8,
+    ) -> Result<Self, GorkaError> {
+        match c {
+            ConstellationType::Glonass => {
+                let k = id as i8 + GloSlot::MIN;
+                Ok(Self::Glonass(GloSlot::new(k)?))
+            }
+            ConstellationType::Gps => Ok(Self::Gps(GpsPrn::new(id)?)),
+            ConstellationType::Galileo => Ok(Self::Galileo(GalSvn::new(id)?)),
+            ConstellationType::Beidou => Ok(Self::Beidou(BdsPrn::new(id)?)),
+        }
+    }
+
+    pub const fn display_id(self) -> u8 {
+        match self {
+            Self::Glonass(slot) => (slot.get() - GloSlot::MIN) as u8,
+            Self::Gps(prn) => prn.get(),
+            Self::Galileo(svn) => svn.get(),
+            Self::Beidou(prn) => prn.get(),
         }
     }
 }
@@ -122,12 +146,9 @@ impl core::fmt::Display for SatelliteId {
         &self,
         f: &mut core::fmt::Formatter<'_>,
     ) -> core::fmt::Result {
-        match self {
-            Self::Glonass(slot) => write!(f, "GLO{:02}", slot.get() + 7),
-            Self::Gps(prn) => write!(f, "GPS{:02}", prn.get()),
-            Self::Galileo(svn) => write!(f, "GAL{:02}", svn.get()),
-            Self::Beidou(prn) => write!(f, "BDS{:02}", prn.get()),
-        }
+        let c = self.constellation();
+
+        write!(f, "{}{:02}", c.abbrev(), self.display_id())
     }
 }
 

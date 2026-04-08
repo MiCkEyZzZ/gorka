@@ -3,7 +3,7 @@ use std::time::Instant;
 use gorka::{GlonassDecoder, GlonassSample, MilliHz, Millimeter, StreamEncoder};
 
 fn main() {
-    println!("=== StreamEncoder performance test ===");
+    println!("=== Gorka StreamEncoder performance test ===");
 
     let n_samples = 100_000;
     let mut buf = vec![0u8; 1024 * 1024 * 4]; // 4 MB buffer

@@ -36,7 +36,7 @@ impl GpsSample {
     pub fn validate_pseudorange(&self) -> Result<(), GorkaError> {
         let mm = self.pseudorange_mm.as_i64();
 
-        if !(Self::PSEUDORANGE_MIN_MM.0..=Self::PSEUDORANGE_MAX_MM.0).contains(&mm) {
+        if !(Self::PSEUDORANGE_MIN_MM.as_i64()..=Self::PSEUDORANGE_MAX_MM.as_i64()).contains(&mm) {
             return Err(GorkaError::InvalidPseudorange(mm));
         }
 
@@ -47,7 +47,7 @@ impl GpsSample {
     pub fn validate_doppler(&self) -> Result<(), GorkaError> {
         let abs = self.doppler_millihz.as_i32().abs();
 
-        if abs > Self::DOPPLER_MAX_MILLIHZ.0 {
+        if abs > Self::DOPPLER_MAX_MILLIHZ.as_i32() {
             return Err(GorkaError::InvalidDoppler(abs));
         }
 
@@ -68,13 +68,13 @@ impl GpsSample {
     #[inline]
     pub fn is_valid_pseudorange(&self) -> bool {
         let mm = self.pseudorange_mm.as_i64();
-        (Self::PSEUDORANGE_MIN_MM.0..=Self::PSEUDORANGE_MAX_MM.0).contains(&mm)
+        (Self::PSEUDORANGE_MIN_MM.as_i64()..=Self::PSEUDORANGE_MAX_MM.as_i64()).contains(&mm)
     }
 
     #[inline]
     pub fn is_valid_doppler(&self) -> bool {
         let mhz = self.doppler_millihz.abs().as_i32();
-        mhz <= Self::DOPPLER_MAX_MILLIHZ.0
+        mhz <= Self::DOPPLER_MAX_MILLIHZ.as_i32()
     }
 }
 
@@ -128,7 +128,7 @@ mod tests {
         GpsSample {
             timestamp_ms: 1_700_000_000_000,
             prn: GpsPrn::new(7).unwrap(),
-            cn0_dbhz: DbHz(42),
+            cn0_dbhz: DbHz::new(42).unwrap(),
             pseudorange_mm: Millimeter::new(22_000_000_000),
             doppler_millihz: MilliHz::new(1_500_000),
             carrier_phase_cycles: Some(9_876_543),

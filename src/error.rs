@@ -26,6 +26,11 @@ pub enum GorkaError {
     /// Invalid satellite SVN (out of allowed range)
     InvalidSvn(u8),
 
+    /// Invalid carrier-to-noise density (C/N₀) value in dB-Hz.
+    ///
+    /// Expected range is typically 0..=60 dB-Hz.
+    InvalidDbHz(u8),
+
     /// Invalid C/N0 value (carrier-to-noise ratio)
     /// Typically expected to be within a range like [0..=60] dB-Hz
     /// (implementation-dependent)
@@ -128,6 +133,9 @@ impl fmt::Display for GorkaError {
             }
             Self::FrameFull => {
                 write!(f, "GnssFrame is full (capacity: 14 observation)")
+            }
+            Self::InvalidDbHz(dbhz) => {
+                write!(f, "invalid C/N₀ value: {dbhz} dB-Hz")
             }
             Self::BufferFull => write!(f, "StreamEncoder output buffer is full; flush and retry"),
             // NOTE: при добавлении нового варианта сюда, также добавьте Display-ветку. Компилятор

@@ -1,8 +1,5 @@
 use crate::{GorkaError, MilliHz, Millimeter};
 
-// Общие типы вынес в отдельный файл `types.rs` для удобства в будущем
-// при создании других источников таких как: GPS, Galileo, Beido
-
 /// A single GLONASS satellite observation captured at one epoch.
 ///
 /// GLONASS uses **FDMA** (Frequency Division Multiple Access): each satellite
