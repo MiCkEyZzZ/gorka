@@ -249,7 +249,7 @@ fn decode_verbatim(data: &[u8]) -> Result<(GlonassSample, usize), GorkaError> {
             let p = i64::from_le_bytes(data[23..31].try_into().unwrap());
             (Some(p), 31)
         }
-        _ => return Err(GorkaError::UnexpectedEof),
+        _ => return Err(GorkaError::InvalidPhaseFlag(phase_flag)),
     };
     let slot = GloSlot::new(slot)?;
     let cn0_dbhz = DbHz::new(cn0_dbhz)?;
@@ -352,11 +352,7 @@ fn decode_slot(
     }
 
     let idx = reader.read_bits(4)?;
-    let slot = idx_to_slot(idx);
-
-    if !(-7..=6).contains(&slot.get()) {
-        return Err(GorkaError::UnexpectedEof);
-    }
+    let slot = idx_to_slot(idx)?;
 
     state.last_slot = slot;
 
@@ -374,11 +370,13 @@ fn decode_cn0(
     }
 
     let delta = reader.read_bits_signed(9)? as i16;
-    let cn0 = (state.last_cn0.get() as i16 + delta) as u8;
+    let cn0_val = state.last_cn0.get() as i16;
+    let cn0_checked = cn0_val.checked_add(delta).ok_or(GorkaError::OverflowCn0)?;
 
-    let cn0 = DbHz::new(cn0)?;
+    let cn0_u8 = u8::try_from(cn0_checked).map_err(|_| GorkaError::OverflowCn0)?;
+    let cn0 = DbHz::new(cn0_u8)?;
+
     state.last_cn0 = cn0;
-
     Ok(cn0)
 }
 
@@ -389,24 +387,37 @@ fn decode_pseudorange(
     let b0 = reader.read_bit()?;
 
     if !b0 {
-        let pr = Millimeter(state.last_pr_mm.0 + state.last_pr_delta.0);
-
+        let pr = Millimeter(
+            state
+                .last_pr_mm
+                .as_i64()
+                .checked_add(state.last_pr_delta.as_i64())
+                .ok_or(GorkaError::OverflowPseudorange)?,
+        );
         state.last_pr_mm = pr;
-
         return Ok(pr);
     }
 
     let b1 = reader.read_bit()?;
 
     if !b1 {
-        // '10' + 10b
         let dod = reader.read_bits_signed(10)?;
-        let delta = state.last_pr_delta.0 + dod;
-        let pr = Millimeter(state.last_pr_mm.0 + delta);
+        let delta = state
+            .last_pr_delta
+            .as_i64()
+            .checked_add(dod)
+            .ok_or(GorkaError::OverflowPseudorange)?;
+
+        let pr = Millimeter(
+            state
+                .last_pr_mm
+                .as_i64()
+                .checked_add(delta)
+                .ok_or(GorkaError::OverflowPseudorange)?,
+        );
 
         state.last_pr_delta = Millimeter(delta);
         state.last_pr_mm = pr;
-
         return Ok(pr);
     }
 
@@ -414,19 +425,28 @@ fn decode_pseudorange(
 
     if !b2 {
         let dod = reader.read_bits_signed(20)?;
-        let delta = state.last_pr_delta.0 + dod;
-        let pr = Millimeter(state.last_pr_mm.0 + delta);
+        let delta = state
+            .last_pr_delta
+            .as_i64()
+            .checked_add(dod)
+            .ok_or(GorkaError::OverflowPseudorange)?;
+
+        let pr = Millimeter(
+            state
+                .last_pr_mm
+                .as_i64()
+                .checked_add(delta)
+                .ok_or(GorkaError::OverflowPseudorange)?,
+        );
 
         state.last_pr_delta = Millimeter(delta);
         state.last_pr_mm = pr;
-
         return Ok(pr);
     }
 
-    // '111' + 64b verbatim
     let raw = reader.read_bits(64)? as i64;
     let pr = Millimeter(raw);
-    let delta = raw - state.last_pr_mm.0;
+    let delta = raw - state.last_pr_mm.as_i64();
 
     state.last_pr_delta = Millimeter(delta);
     state.last_pr_mm = pr;
@@ -443,46 +463,39 @@ fn decode_doppler(
 
     let doppler = match state.last_doppler[idx] {
         None => {
-            // Encoder пишет: '0' + 32b verbatim
-            let _flag = reader.read_bit()?; // всегда false для первого появления
+            let _flag = reader.read_bit()?; // expected 0
             let raw = reader.read_bits(32)? as u32 as i32;
             state.last_doppler[idx] = Some(raw);
             MilliHz(raw)
         }
         Some(prev) => {
-            // Encoder пишет: '10' | '110' + 14b | '111' + 32b
             let b0 = reader.read_bit()?;
             let b1 = reader.read_bit()?;
 
             match (b0, b1) {
-                // '10' — delta == 0
-                (true, false) => MilliHz(prev),
-
-                // '11x' — читаем третий бит
+                (true, false) => MilliHz(prev), // 10
                 (true, true) => {
                     let b2 = reader.read_bit()?;
                     if !b2 {
-                        // '110' + 14b
                         let delta = reader.read_bits_signed(14)?;
-                        let doppler = (prev as i64 + delta) as i32;
+                        let doppler = (prev as i64)
+                            .checked_add(delta)
+                            .ok_or(GorkaError::OverflowDoppler)?
+                            as i32;
                         state.last_doppler[idx] = Some(doppler);
                         MilliHz(doppler)
                     } else {
-                        // '111' + 32b verbatim
                         let raw = reader.read_bits(32)? as u32 as i32;
                         state.last_doppler[idx] = Some(raw);
                         MilliHz(raw)
                     }
                 }
-
-                // (false, _) — не должно быть: encoder всегда начинает с '1' для seen-before
                 _ => return Err(GorkaError::UnexpectedEof),
             }
         }
     };
 
-    state.last_doppler[slot_to_idx(slot)] = Some(doppler.0);
-
+    state.last_doppler[idx] = Some(doppler.0);
     Ok(doppler)
 }
 
@@ -494,21 +507,22 @@ fn decode_carrier_phase(
     let b1 = reader.read_bit()?;
 
     let phase = match (b0, b1) {
-        // '00' — None → None
-        (false, false) => None,
+        (false, false) => {
+            state.last_phase_delta = None;
+            None
+        }
 
-        // '01' — Some → None
-        (false, true) => None,
+        (false, true) => {
+            state.last_phase_delta = None;
+            None
+        }
 
-        // '10' — None → Some, verbatim 64b
         (true, false) => {
             let p = reader.read_bits(64)? as i64;
-
-            // last_phase_delta остаётся None: первая пара ещё не случилась
+            state.last_phase_delta = None;
             Some(p)
         }
 
-        // '11' — Some → Some: DoD ветка
         (true, true) => {
             let prev = state.last_phase.ok_or(GorkaError::UnexpectedEof)?;
             let prev_d = state.last_phase_delta.unwrap_or(0);
@@ -516,31 +530,21 @@ fn decode_carrier_phase(
             let b2 = reader.read_bit()?;
 
             if !b2 {
-                // '110' — dod == 0 → delta не изменилась
-                let delta = prev_d;
-                let curr = prev + delta;
-
-                state.last_phase_delta = Some(delta);
-
+                let curr = prev + prev_d;
+                state.last_phase_delta = Some(prev_d);
                 Some(curr)
             } else {
                 let b3 = reader.read_bit()?;
 
                 if !b3 {
-                    // '1110' + 32b zigzag dod
                     let dod = reader.read_bits_signed(32)?;
                     let delta = prev_d + dod;
                     let curr = prev + delta;
-
                     state.last_phase_delta = Some(delta);
-
                     Some(curr)
                 } else {
-                    // '1111' + 64b verbatim (DoD reset)
                     let curr = reader.read_bits(64)? as i64;
-
                     state.last_phase_delta = None;
-
                     Some(curr)
                 }
             }
@@ -548,7 +552,6 @@ fn decode_carrier_phase(
     };
 
     state.last_phase = phase;
-
     Ok(phase)
 }
 
@@ -557,9 +560,12 @@ fn slot_to_idx(slot: GloSlot) -> usize {
     (slot.get() + 7) as usize
 }
 
-#[inline]
-fn idx_to_slot(idx: u64) -> GloSlot {
-    GloSlot::new(idx as i8 - 7).unwrap()
+fn idx_to_slot(idx: u64) -> Result<GloSlot, GorkaError> {
+    if idx >= 14 {
+        return Err(GorkaError::InvalidSlotIndex(idx as u8));
+    }
+
+    GloSlot::new(idx as i8 - 7)
 }
 
 #[cfg(test)]

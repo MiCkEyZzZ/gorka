@@ -6,6 +6,16 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **error**
+  - добавлены новые варианты ошибок для повышения надёжности и диагностики:
+    - `InvalidSlotIndex` — некорректный внутренний индекс слота
+    - `InvalidPhaseFlag` — некорректный флаг кодирования carrier phase
+    - `OverflowCn0` — переполнение значения C/N₀
+    - `OverflowPseudorange` — переполнение псевдодальности
+    - `OverflowDoppler` — переполнение допплера
+  - добавлены подробные `Display`-сообщения для всех новых ошибок
+  - добавлены doc-комментарии в едином стиле с остальными вариантами `GorkaError`
+
 - **.github**
   - добавлен шаблон issue `Bug report` для удобного оформления сообщений о багах:
     - поля: `description`, `steps`, `environment`
@@ -240,6 +250,17 @@ All notable changes to **Gorka** are documented in this file.
 - **tests**
   - удалены тесты для проверки старой реализации writer: `test_bitstream.rs`
   - удалены проперти тесты для проверки старой реализации writer: `bit_property.rs`
+
+### Fixed
+
+- **codec/stream / codec/encoder / codec/decoder**
+  - Исправлена обработка `carrier_phase_cycles` при повторном появлении сигнала:
+    - сброс `last_phase_delta` при `None -> Some` и `Some -> None` для корректного
+      delta-of-delta кодирования
+    - теперь `StreamEncoder` и `GlonassDecoder` полностью совместимы при повторном
+      трекинге carrier phase
+    - исправлены соответствующие unit-тесты `test_carrier_phase_reacquired`
+      и интеграционные roundtrip-тесты
 
 ## [v0.4.1] — 2026-04-06
 

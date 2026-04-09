@@ -31,6 +31,11 @@ pub enum GorkaError {
     /// Expected range is typically 0..=60 dB-Hz.
     InvalidDbHz(u8),
 
+    /// Invalid slot index (internal index representation).
+    ///
+    /// Expected range is typically 0..=13 (for 14 GLONASS slots).
+    InvalidSlotIndex(u8),
+
     /// Invalid C/N0 value (carrier-to-noise ratio)
     /// Typically expected to be within a range like [0..=60] dB-Hz
     /// (implementation-dependent)
@@ -38,6 +43,11 @@ pub enum GorkaError {
 
     /// Requested bit count exceeds 64
     InvalidBitCount(u8),
+
+    /// Invalid carrier phase flag encoding.
+    ///
+    /// Indicates corrupted or unsupported phase transition bits.
+    InvalidPhaseFlag(u8),
 
     /// Value does not fit into the requested number of bits.
     ValueTooLarge { value: u64, bits: u8 },
@@ -74,6 +84,21 @@ pub enum GorkaError {
     /// The sample was NOT written. Encoder state is unchanged — the caller
     /// can flush the current chunk and retry with a fresh buffer.
     BufferFull,
+
+    /// C/N₀ value overflowed during encoding or decoding.
+    ///
+    /// This usually indicates a bug or corrupted input data.
+    OverflowCn0,
+
+    /// Pseudorange value overflowed during encoding or decoding.
+    ///
+    /// This indicates the value exceeded internal numeric bounds.
+    OverflowPseudorange,
+
+    /// Doppler value overflowed during encoding or decoding.
+    ///
+    /// This indicates the value exceeded internal numeric bounds.
+    OverflowDoppler,
 }
 
 impl fmt::Display for GorkaError {
@@ -131,13 +156,30 @@ impl fmt::Display for GorkaError {
             Self::DuplicateSlot(k) => {
                 write!(f, "frame already contains an observation for slot k={k}")
             }
+            Self::InvalidSlotIndex(i) => {
+                write!(f, "invalid slot index: {i} (expected 0..=13)")
+            }
+            Self::InvalidPhaseFlag(p) => {
+                write!(f, "invalid carrier phase flag: {p}")
+            }
             Self::FrameFull => {
                 write!(f, "GnssFrame is full (capacity: 14 observation)")
             }
             Self::InvalidDbHz(dbhz) => {
                 write!(f, "invalid C/N₀ value: {dbhz} dB-Hz")
             }
-            Self::BufferFull => write!(f, "StreamEncoder output buffer is full; flush and retry"),
+            Self::BufferFull => {
+                write!(f, "StreamEncoder output buffer is full; flush and retry")
+            }
+            Self::OverflowCn0 => {
+                write!(f, "C/N0 value overflow")
+            }
+            Self::OverflowPseudorange => {
+                write!(f, "pseudorange value overflow")
+            }
+            Self::OverflowDoppler => {
+                write!(f, "doppler value overflow")
+            }
         }
     }
 }
