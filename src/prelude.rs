@@ -6,7 +6,6 @@ pub use crate::{
     // Bits
     BitReader,
     BitWrite,
-    BitWriter,
     ConstellationType,
     DbHz,
     GalSvn,

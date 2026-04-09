@@ -1,6 +1,6 @@
 use gorka::{
     codec::{GlonassDecoder, GlonassEncoder},
-    GlonassSample, MilliHz, Millimeter,
+    DbHz, GloSlot, GlonassSample, MilliHz, Millimeter,
 };
 use proptest::prelude::*;
 
@@ -18,8 +18,8 @@ fn arb_sample() -> impl Strategy<Value = GlonassSample> {
     )
         .prop_map(|(ts, slot, cn0, pr, doppler, phase)| GlonassSample {
             timestamp_ms: BASE_TS + ts,
-            slot,
-            cn0_dbhz: cn0,
+            slot: GloSlot::new(slot).unwrap(),
+            cn0_dbhz: DbHz::new(cn0).unwrap(),
             pseudorange_mm: Millimeter::new(pr),
             doppler_millihz: MilliHz::new(doppler),
             carrier_phase_cycles: phase,
@@ -50,8 +50,8 @@ fn arb_timeseries() -> impl Strategy<Value = Vec<GlonassSample>> {
 
                 samples.push(GlonassSample {
                     timestamp_ms: ts,
-                    slot,
-                    cn0_dbhz: 40 + (i % 5) as u8,
+                    slot: GloSlot::new(slot).unwrap(),
+                    cn0_dbhz: DbHz::new(40 + (i % 5) as u8).unwrap(),
                     pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 10),
                     doppler_millihz: MilliHz::new(1_200_000 + i as i32),
                     carrier_phase_cycles: Some(i as i64 * 1000),

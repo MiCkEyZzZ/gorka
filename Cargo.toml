@@ -37,11 +37,6 @@ path = "benches/encode_bench.rs"
 harness = false
 
 [[bench]]
-name = "bitio_bench"
-path = "benches/bitio_bench.rs"
-harness = false
-
-[[bench]]
 name = "stream_bench"
 path = "benches/stream_bench.rs"
 harness = false

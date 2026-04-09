@@ -1,4 +1,4 @@
-use gorka::{codec::GlonassEncoder, GlonassSample, MilliHz, Millimeter};
+use gorka::{codec::GlonassEncoder, DbHz, GloSlot, GlonassSample, MilliHz, Millimeter};
 
 const BASE_TS: u64 = 1_700_000_000_000;
 
@@ -39,8 +39,8 @@ fn constant_samples(count: usize) -> Vec<GlonassSample> {
     (0..count)
         .map(|i| GlonassSample {
             timestamp_ms: BASE_TS + i as u64,
-            slot: 1,
-            cn0_dbhz: 42,
+            slot: GloSlot::new(1).unwrap(),
+            cn0_dbhz: DbHz::new(42).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000),
             doppler_millihz: MilliHz::new(1_200_500),
             carrier_phase_cycles: None,
@@ -52,8 +52,8 @@ fn smooth_samples(count: usize) -> Vec<GlonassSample> {
     (0..count)
         .map(|i| GlonassSample {
             timestamp_ms: BASE_TS + i as u64,
-            slot: 1,
-            cn0_dbhz: 45 + (i % 3) as u8,
+            slot: GloSlot::new(1).unwrap(),
+            cn0_dbhz: DbHz::new(45 + (i % 3) as u8).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000 + (i as i64 * 5)),
             doppler_millihz: MilliHz::new(1_200_000 + (i as i32 * 2)),
             carrier_phase_cycles: Some(100_000_i64 + (i as i64 * 16_384)),
@@ -81,8 +81,8 @@ fn noisy_samples(count: usize) -> Vec<GlonassSample> {
 
         ts += 1 + (r1 % 4);
 
-        let slot = (r2 % 14) as i8 - 7;
-        let cn0 = 20 + (r3 % 40) as u8;
+        let slot = GloSlot::new((r2 % 14) as i8 - 7).unwrap();
+        let cn0 = DbHz::new(20 + (r3 % 40) as u8).unwrap();
 
         let pr_jitter = (r4 % 2_001) as i64 - 1_000; // [-1000; 1000]
         let doppler_jitter = (next() % 20_001) as i32 - 10_000; // [-10000; 10000]

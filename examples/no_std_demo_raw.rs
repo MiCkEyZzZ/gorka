@@ -1,5 +1,5 @@
 use gorka::{
-    decode_i64, delta_of_delta_i64, encode_i64, BitReader, BitWrite, GlonassDecoder,
+    decode_i64, delta_of_delta_i64, encode_i64, BitReader, BitWrite, DbHz, GloSlot, GlonassDecoder,
     GlonassEncoder, GlonassSample, GnssFrame, GorkaError, MilliHz, Millimeter, RawBitWriter,
 };
 
@@ -10,16 +10,16 @@ fn main() {
     let samples = vec![
         GlonassSample {
             timestamp_ms: 1_700_000_000_000,
-            slot: -3,
-            cn0_dbhz: 38,
+            slot: GloSlot::new(-3).unwrap(),
+            cn0_dbhz: DbHz::new(38).unwrap(),
             pseudorange_mm: Millimeter::new(22_100_000_000),
             doppler_millihz: MilliHz::new(-2_500_000),
             carrier_phase_cycles: Some(987_654_321),
         },
         GlonassSample {
             timestamp_ms: 1_700_000_001_000,
-            slot: -3,
-            cn0_dbhz: 39,
+            slot: GloSlot::new(-3).unwrap(),
+            cn0_dbhz: DbHz::new(39).unwrap(),
             pseudorange_mm: Millimeter::new(22_100_000_300),
             doppler_millihz: MilliHz::new(-2_499_950),
             carrier_phase_cycles: Some(987_654_321 + 65_536),
@@ -74,8 +74,8 @@ fn main() {
         frame
             .push(GlonassSample {
                 timestamp_ms: ts,
-                slot,
-                cn0_dbhz: 40,
+                slot: GloSlot::new(slot).unwrap(),
+                cn0_dbhz: DbHz::new(40).unwrap(),
                 pseudorange_mm: Millimeter::new(21_500_000_000),
                 doppler_millihz: MilliHz::new(1_000_000),
                 carrier_phase_cycles: None,

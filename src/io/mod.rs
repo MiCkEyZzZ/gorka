@@ -1,8 +1,7 @@
-// Это потоковый ввод/вывод chunk-последовательностей.
-// Формат фрейма будет таким (length-prefixed)
-// Несколько фреймов записываются последовательно - нет
-// разделителей между ними. ChunkReader итерирует по фреймам,
-// не копируя данные (&[u8] ссылка).
+// Это потоковый ввод/вывод chunk-последовательностей. Формат фрейма будет таким
+// (length-prefixed) Несколько фреймов записываются последовательно - нет
+// разделителей между ними. ChunkReader итерирует по фреймам, не копируя данные
+// (&[u8] ссылка).
 
 use std::io::{self, Write};
 
@@ -173,19 +172,21 @@ pub fn read_framed(data: &[u8]) -> Result<(&[u8], usize), GorkaError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter};
+    use crate::{
+        DbHz, GloSlot, GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter,
+    };
 
     const BASE_TS: u64 = 1_700_000_000_000;
 
     fn make_samples(
         n: usize,
-        slot: i8,
+        slot: GloSlot,
     ) -> Vec<GlonassSample> {
         (0..n)
             .map(|i| GlonassSample {
                 timestamp_ms: BASE_TS + i as u64,
                 slot,
-                cn0_dbhz: 42,
+                cn0_dbhz: DbHz::new(42).unwrap(),
                 pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 222),
                 doppler_millihz: MilliHz::new(1_200_000 + i as i32 * 10),
                 carrier_phase_cycles: None,
@@ -433,7 +434,7 @@ mod tests {
 
     #[test]
     fn test_codec_integration_single_chunk() {
-        let samples = make_samples(32, 1);
+        let samples = make_samples(32, GloSlot::new(1).unwrap());
         let chunk = GlonassEncoder::encode_chunk(&samples).unwrap();
 
         let mut buf: Vec<u8> = Vec::new();
@@ -453,8 +454,9 @@ mod tests {
     #[test]
     fn test_codec_integration_multi_chunk_stream() {
         // 4 независимых chunk из разных спутников
-        let slot_samples: Vec<Vec<GlonassSample>> =
-            (-7_i8..=-4).map(|slot| make_samples(64, slot)).collect();
+        let slot_samples: Vec<Vec<GlonassSample>> = (-7_i8..=-4)
+            .map(|slot| make_samples(64, GloSlot::new(slot).unwrap()))
+            .collect();
 
         let mut buf: Vec<u8> = Vec::new();
         let mut writer = ChunkWriter::new(&mut buf);
@@ -482,7 +484,7 @@ mod tests {
     #[test]
     fn test_codec_integration_large_chunks() {
         // 8192 samples — проверяем что большие chunk корректно framed
-        let samples = make_samples(8192, 0);
+        let samples = make_samples(8192, GloSlot::new(0).unwrap());
         let chunk = GlonassEncoder::encode_chunk(&samples).unwrap();
 
         let mut buf: Vec<u8> = Vec::new();
@@ -502,7 +504,7 @@ mod tests {
     fn test_codec_integration_roundtrip_preserves_order() {
         // 10 chunk по 128 сэмплов — проверяем порядок и точность
         let all_samples: Vec<Vec<GlonassSample>> = (0..10)
-            .map(|i| make_samples(128, (i % 14) as i8 - 7))
+            .map(|i| make_samples(128, GloSlot::new((i % 14) as i8 - 7).unwrap()))
             .collect();
 
         let mut buf: Vec<u8> = Vec::new();

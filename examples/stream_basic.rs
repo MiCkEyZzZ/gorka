@@ -1,4 +1,4 @@
-use gorka::{GlonassDecoder, GlonassSample, MilliHz, Millimeter, StreamEncoder};
+use gorka::{DbHz, GloSlot, GlonassDecoder, GlonassSample, MilliHz, Millimeter, StreamEncoder};
 
 fn main() {
     println!("=== Gorka StreamEncoder basic demo ===");
@@ -10,8 +10,8 @@ fn main() {
     let samples: Vec<GlonassSample> = (0..10)
         .map(|i| GlonassSample {
             timestamp_ms: 1_700_000_000_000 + i * 1000,
-            slot: (i % 14) as i8 - 7,
-            cn0_dbhz: 40 + (i % 5) as u8,
+            slot: GloSlot::new((i % 14) as i8 - 7).unwrap(), // GloSlot вместо i8
+            cn0_dbhz: DbHz::new(40 + (i % 5) as u8).unwrap(), // DbHz вместо u8
             pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 222),
             doppler_millihz: MilliHz::new(1_200_000 + i as i32 * 50),
             carrier_phase_cycles: if i % 2 == 0 {

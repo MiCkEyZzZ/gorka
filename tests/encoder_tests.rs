@@ -1,6 +1,6 @@
 use gorka::{
     codec::{GlonassDecoder, GlonassEncoder},
-    GlonassSample, GorkaError, MilliHz, Millimeter,
+    DbHz, GloSlot, GlonassSample, GorkaError, MilliHz, Millimeter,
 };
 
 const BASE_TS: u64 = 1_700_000_000_000;
@@ -11,8 +11,8 @@ fn sample(
 ) -> GlonassSample {
     GlonassSample {
         timestamp_ms: BASE_TS + i,
-        slot,
-        cn0_dbhz: 40 + (i % 10) as u8,
+        slot: GloSlot::new(slot).unwrap(),
+        cn0_dbhz: DbHz::new(40 + (i % 10) as u8).unwrap(),
         pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 222),
         doppler_millihz: MilliHz::new(1_200_000 + i as i32 * 50),
         carrier_phase_cycles: Some(100_000 + i as i64 * 21 * (1 << 16)),
@@ -25,8 +25,8 @@ fn constant_sample(
 ) -> GlonassSample {
     GlonassSample {
         timestamp_ms: BASE_TS + i,
-        slot,
-        cn0_dbhz: 42,
+        slot: GloSlot::new(slot).unwrap(),
+        cn0_dbhz: DbHz::new(42).unwrap(),
         pseudorange_mm: Millimeter::new(21_500_000_000),
         doppler_millihz: MilliHz::new(1_200_500),
         carrier_phase_cycles: None,
@@ -98,18 +98,6 @@ fn test_empty_chunk_error() {
     let err = GlonassEncoder::encode_chunk(&[]).unwrap_err();
 
     assert!(matches!(err, GorkaError::EmptyChunk));
-}
-
-#[test]
-fn test_invalid_slot_error() {
-    let bad = GlonassSample {
-        slot: 10,
-        ..sample(0, 1)
-    };
-
-    let err = GlonassEncoder::encode_chunk(&[bad]).unwrap_err();
-
-    assert!(matches!(err, GorkaError::InvalidSlot(_)));
 }
 
 #[test]

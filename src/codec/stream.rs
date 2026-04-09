@@ -1,6 +1,6 @@
 use crate::{
-    encode_i64, BitWrite, FormatVersion, GlonassSample, GorkaError, MilliHz, Millimeter,
-    RawBitWriter, VersionUtils,
+    encode_i64, BitWrite, DbHz, FormatVersion, GloSlot, GlonassSample, GorkaError, MilliHz,
+    Millimeter, RawBitWriter, VersionUtils,
 };
 
 pub const STREAM_ENCODER_MIN_BUF_NO_PHASE: usize = 9 + 23;
@@ -20,8 +20,8 @@ pub struct StreamEncoder<'a> {
 struct EncoderState {
     last_ts: u64,
     last_delta_ts: u64,
-    last_slot: i8,
-    last_cn0: u8,
+    last_slot: GloSlot,
+    last_cn0: DbHz,
     last_pr_mm: Millimeter,
     last_pr_delta: Millimeter,
     last_doppler: [Option<i32>; N_SLOT],
@@ -32,8 +32,8 @@ struct EncoderState {
 struct StateSnapshot {
     last_ts: u64,
     last_delta_ts: u64,
-    last_slot: i8,
-    last_cn0: u8,
+    last_slot: GloSlot,
+    last_cn0: DbHz,
     last_pr_mm: Millimeter,
     last_pr_delta: Millimeter,
     last_doppler: [Option<i32>; N_SLOT],
@@ -222,8 +222,8 @@ impl<'a> StreamEncoder<'a> {
 }
 
 #[inline]
-fn slot_idx(slot: i8) -> usize {
-    (slot + 7) as usize
+fn slot_idx(slot: GloSlot) -> usize {
+    (slot.get() + 7) as usize
 }
 
 fn verbatim_size(sample: &GlonassSample) -> usize {
@@ -239,8 +239,8 @@ fn write_verbatim(
     dst: &mut [u8],
 ) {
     dst[0..8].copy_from_slice(&sample.timestamp_ms.to_le_bytes());
-    dst[8] = sample.slot as u8;
-    dst[9] = sample.cn0_dbhz;
+    dst[8] = sample.slot.get() as u8;
+    dst[9] = sample.cn0_dbhz.get();
     dst[10..18].copy_from_slice(&sample.pseudorange_mm.0.to_le_bytes());
     dst[18..22].copy_from_slice(&sample.doppler_millihz.0.to_le_bytes());
 
@@ -299,9 +299,9 @@ fn enc_ts(
 fn enc_slot(
     writer: &mut RawBitWriter,
     state: &mut EncoderState,
-    slot: i8,
+    slot: GloSlot,
 ) -> Result<(), GorkaError> {
-    if slot == state.last_slot {
+    if slot.get() == state.last_slot.get() {
         writer.write_bit(false)?;
     } else {
         writer.write_bit(true)?;
@@ -316,9 +316,9 @@ fn enc_slot(
 fn enc_cn0(
     writer: &mut RawBitWriter,
     state: &mut EncoderState,
-    cn0: u8,
+    cn0: DbHz,
 ) -> Result<(), GorkaError> {
-    let delta = cn0 as i16 - state.last_cn0 as i16;
+    let delta = cn0.get() as i16 - state.last_cn0.get() as i16;
 
     if delta == 0 {
         writer.write_bit(false)?;
@@ -337,8 +337,8 @@ fn enc_pr(
     state: &mut EncoderState,
     pr: Millimeter,
 ) -> Result<(), GorkaError> {
-    let delta = pr.0 - state.last_pr_mm.0;
-    let dod = delta - state.last_pr_delta.0;
+    let delta = pr.as_i64() - state.last_pr_mm.as_i64();
+    let dod = delta - state.last_pr_delta.as_i64();
     let zz = encode_i64(dod);
 
     if dod == 0 {
@@ -364,7 +364,7 @@ fn enc_dop(
     writer: &mut RawBitWriter,
     state: &mut EncoderState,
     doppler: MilliHz,
-    slot: i8,
+    slot: GloSlot,
 ) -> Result<(), GorkaError> {
     let idx = slot_idx(slot);
 
@@ -446,12 +446,12 @@ mod tests {
 
     fn sample(
         i: u64,
-        slot: i8,
+        slot: GloSlot,
     ) -> GlonassSample {
         GlonassSample {
             timestamp_ms: BASE_TS + i,
             slot,
-            cn0_dbhz: 40 + (i % 10) as u8,
+            cn0_dbhz: DbHz::new(40 + (i % 10) as u8).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 222),
             doppler_millihz: MilliHz::new(1_200_000 + i as i32 * 50),
             carrier_phase_cycles: Some(100_000_i64 + i as i64 * 21 * (1 << 16)),
@@ -460,12 +460,12 @@ mod tests {
 
     fn constant(
         i: u64,
-        slot: i8,
+        slot: GloSlot,
     ) -> GlonassSample {
         GlonassSample {
             timestamp_ms: BASE_TS + i,
             slot,
-            cn0_dbhz: 42,
+            cn0_dbhz: DbHz::new(42).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000),
             doppler_millihz: MilliHz::new(1_200_500),
             carrier_phase_cycles: None,
@@ -488,35 +488,41 @@ mod tests {
 
     #[test]
     fn test_single_no_phase() {
-        let orig = [constant(0, 0)];
+        let orig = [constant(0, GloSlot::new(0).unwrap())];
 
         assert_eq!(roundtrip_stream(&orig), orig);
     }
 
     #[test]
     fn test_single_with_phase() {
-        let orig = [sample(0, 1)];
+        let orig = [sample(0, GloSlot::new(1).unwrap())];
 
         assert_eq!(roundtrip_stream(&orig), orig);
     }
 
     #[test]
     fn test_10_samples() {
-        let orig: Vec<_> = (0..10).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..10)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
 
         assert_eq!(roundtrip_stream(&orig), orig);
     }
 
     #[test]
     fn test_128_smooth() {
-        let orig: Vec<_> = (0..128).map(|i| sample(i, 2)).collect();
+        let orig: Vec<_> = (0..128)
+            .map(|i| sample(i, GloSlot::new(2).unwrap()))
+            .collect();
 
         assert_eq!(roundtrip_stream(&orig), orig);
     }
 
     #[test]
     fn test_all_14_slots() {
-        let orig: Vec<_> = (0..56u64).map(|i| sample(i, (i % 14) as i8 - 7)).collect();
+        let orig: Vec<_> = (0..56u64)
+            .map(|i| sample(i, GloSlot::new((i % 14) as i8 - 7).unwrap()))
+            .collect();
 
         assert_eq!(roundtrip_stream(&orig), orig);
     }
@@ -525,7 +531,7 @@ mod tests {
     fn test_carrier_phase_reacquired() {
         let mk = |ts: u64, ph: Option<i64>| GlonassSample {
             carrier_phase_cycles: ph,
-            ..constant(ts, 2)
+            ..constant(ts, GloSlot::new(2).unwrap())
         };
         let orig = vec![
             mk(0, None),
@@ -544,11 +550,11 @@ mod tests {
     #[test]
     fn test_large_timestamp_gap() {
         let orig = vec![
-            constant(0, 0),
-            constant(1, 0),
+            constant(0, GloSlot::new(0).unwrap()),
+            constant(1, GloSlot::new(0).unwrap()),
             GlonassSample {
                 timestamp_ms: BASE_TS + 10_001,
-                ..constant(10_001, 0)
+                ..constant(10_001, GloSlot::new(0).unwrap())
             },
         ];
 
@@ -557,7 +563,9 @@ mod tests {
 
     #[test]
     fn test_output_identical_to_batch_encoder() {
-        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..32)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let batch = GlonassEncoder::encode_chunk(&orig).unwrap();
 
         let mut buf = vec![0u8; 65536];
@@ -589,7 +597,7 @@ mod tests {
         let mut enc = StreamEncoder::new(&mut buf);
 
         assert!(matches!(
-            enc.push_sample(&constant(0, 0)),
+            enc.push_sample(&constant(0, GloSlot::new(0).unwrap())),
             Err(GorkaError::BufferFull)
         ));
     }
@@ -600,25 +608,16 @@ mod tests {
         let mut enc = StreamEncoder::new(&mut buf);
 
         assert!(matches!(
-            enc.push_sample(&sample(0, 1)),
+            enc.push_sample(&sample(0, GloSlot::new(1).unwrap())),
             Err(GorkaError::BufferFull)
         ));
     }
 
     #[test]
-    fn test_invalid_slot_rejected() {
-        let mut buf = [0u8; 64];
-        let mut enc = StreamEncoder::new(&mut buf);
-        let bad = GlonassSample {
-            slot: 99,
-            ..constant(0, 0)
-        };
+    fn test_invalid_slot_creation() {
+        let slot = GloSlot::new(99);
 
-        assert!(matches!(
-            enc.push_sample(&bad),
-            Err(GorkaError::InvalidSlot(99))
-        ));
-        assert_eq!(enc.sample_count(), 0);
+        assert!(slot.is_err());
     }
 
     #[test]
@@ -627,7 +626,8 @@ mod tests {
         let mut enc = StreamEncoder::new(&mut buf);
 
         // Первый сэмпл (40B verbatim) влезает
-        enc.push_sample(&sample(0, 1)).unwrap();
+        enc.push_sample(&sample(0, GloSlot::new(1).unwrap()))
+            .unwrap();
 
         assert_eq!(enc.sample_count(), 1);
 
@@ -636,7 +636,7 @@ mod tests {
         let mut pushed = 1u32;
 
         for i in 1..100u64 {
-            match enc.push_sample(&sample(i, 1)) {
+            match enc.push_sample(&sample(i, GloSlot::new(1).unwrap())) {
                 Ok(_) => pushed += 1,
                 Err(GorkaError::BufferFull) => break,
                 Err(e) => panic!("{e:?}"),
@@ -653,7 +653,7 @@ mod tests {
 
         assert_eq!(dec.len() as u32, pushed);
 
-        assert_eq!(dec[0], sample(0, 1));
+        assert_eq!(dec[0], sample(0, GloSlot::new(1).unwrap()));
     }
 
     #[test]
@@ -661,7 +661,8 @@ mod tests {
         let mut buf = [0u8; STREAM_ENCODER_MIN_BUF_NO_PHASE];
         let mut enc = StreamEncoder::new(&mut buf);
 
-        enc.push_sample(&constant(0, 0)).unwrap();
+        enc.push_sample(&constant(0, GloSlot::new(0).unwrap()))
+            .unwrap();
         assert_eq!(enc.sample_count(), 1);
     }
 
@@ -670,7 +671,8 @@ mod tests {
         let mut buf = [0u8; STREAM_ENCODER_MIN_BUF_WITH_PHASE];
         let mut enc = StreamEncoder::new(&mut buf);
 
-        enc.push_sample(&sample(0, 1)).unwrap();
+        enc.push_sample(&sample(0, GloSlot::new(1).unwrap()))
+            .unwrap();
         assert_eq!(enc.sample_count(), 1);
     }
 
@@ -680,7 +682,8 @@ mod tests {
         let mut enc = StreamEncoder::new(&mut buf);
 
         for i in 0..5u64 {
-            enc.push_sample(&constant(i, 0)).unwrap();
+            enc.push_sample(&constant(i, GloSlot::new(0).unwrap()))
+                .unwrap();
             assert_eq!(enc.sample_count(), i as u32 + 1);
         }
     }

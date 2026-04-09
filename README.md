@@ -69,7 +69,7 @@ use gorka::{
 let samples = vec![GlonassSample {
     timestamp_ms:         1_700_000_000_000,
     slot:                 GloSlot::new(1).unwrap(), // FDMA slot k ∈ [-7, +6]
-    cn0_dbhz:             DbHz(42),                 // signal-to-noise, dBHz
+    cn0_dbhz:             DbHz::new(42).unwrap(),   // signal-to-noise, dBHz
     pseudorange_mm:       Millimeter::new(21_500_000_000),
     doppler_millihz:      MilliHz::new(1_200_500),
     carrier_phase_cycles: Some(123_456_789),
@@ -100,7 +100,7 @@ let base_ts: u64 = 1_700_000_000_000;
 let samples: Vec<GlonassSample> = (0..10).map(|i| GlonassSample {
     timestamp_ms:         base_ts + i * 1000,
     slot:                 GloSlot::new(1),
-    cn0_dbhz:             DbHz(42),
+    cn0_dbhz:             DbHz::new(42).unwrap(),
     pseudorange_mm:       Millimeter::new(21_500_000_000 + i as i64 * 100),
     doppler_millihz:      MilliHz::new(1_200_000 + i as i32 * 5),
     carrier_phase_cycles: Some(i as i64 * 65_536),
@@ -132,7 +132,7 @@ for slot in [-7i8, -3, 0, 3, 6] {
     let samples: Vec<GlonassSample> = (0..60).map(|i| GlonassSample {
         timestamp_ms:         1_700_000_000_000 + i * 1000,
         slot,
-        cn0_dbhz:             DbHz(38),
+        cn0_dbhz:             DbHz::new(38).unwrap(),
         pseudorange_mm:       Millimeter::new(21_500_000_000),
         doppler_millihz:      MilliHz::new(1_000_000),
         carrier_phase_cycles: None,
@@ -198,8 +198,8 @@ use gorka::{GlonassSample, MilliHz, Millimeter, GloSlot, DbHz};
 
 let s = GlonassSample {
     timestamp_ms: 1_700_000_000_000,
-    slot: GloSlot::new(1),
-    cn0_dbhz: DbHz(42),
+    slot: GloSlot::new(1).unwrap(),
+    cn0_dbhz: DbHz::new(42).unwrap(),
     pseudorange_mm:  Millimeter::new(21_500_000_000),
     doppler_millihz: MilliHz::new(1_200_500),
     carrier_phase_cycles: None,
@@ -259,31 +259,6 @@ Available in `no_std + alloc`:
 - `BitReader`, `RawBitWriter`
 - `encode_i64`, `decode_i64`, `delta_of_delta_i64`
 - `GnssFrame`, `GlonassSample`
-
-### RawBitWriter — zero-copy bit writer (v0.4+)
-
-For `no_std` / embedded use, prefer `RawBitWriter` over the deprecated `BitWriter`:
-
-```rust
-use gorka::{bits::BitWrite, RawBitWriter};
-
-let mut buf = [0u8; 64];
-let mut w = RawBitWriter::new(&mut buf);
-
-w.write_bits(0b101, 3).unwrap();
-w.write_bits_signed(-42i64, 16).unwrap();
-
-let n = w.bytes_written();
-// &buf[..n] contains the encoded bits — no heap allocation
-```
-
-`BitWriter` (Vec-backed) is deprecated since v0.4.0 and will be removed in v0.5.0.
-Use `RawBitWriter` + `BitWrite` trait as the replacement.
-
-Requires `std`:
-
-- `gorka::io` (ChunkWriter, ChunkReader)
-- `impl std::error::Error for GorkaError`
 
 ## Testing
 

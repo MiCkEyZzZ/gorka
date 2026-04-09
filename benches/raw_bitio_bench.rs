@@ -9,8 +9,6 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use gorka::{BitReader, BitWrite, RawBitWriter};
 
-// BitWriter benchmarks
-
 fn bench_write_bits(c: &mut Criterion) {
     let mut group = c.benchmark_group("RawBitWriter/write_bits");
 
@@ -95,8 +93,6 @@ fn bench_write_mixed(c: &mut Criterion) {
 
     group.finish();
 }
-
-// BitReader benchmarks
 
 fn make_buf(n_bits: usize) -> Vec<u8> {
     #[allow(clippy::manual_div_ceil)]

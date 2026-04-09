@@ -7,17 +7,13 @@
 //!
 //! - [`BitReader`] — bit-level reader over `&[u8]`
 //! - [`RawBitWriter`] — zero-copy writer over `&mut [u8]` (no allocation)
-//! - [`BitWriter`] — legacy `Vec<u8>`- backed writer (**deprecated**)
 //! - [`BitWrite`] — generic trait for writing bits
 
 pub mod raw_writer;
 pub mod reader;
-pub mod writer;
 
 pub use raw_writer::*;
 pub use reader::*;
-#[allow(deprecated)]
-pub use writer::BitWriter;
 
 use crate::GorkaError;
 

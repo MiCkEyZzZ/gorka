@@ -14,7 +14,7 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use gorka::{
     codec::{GlonassDecoder, GlonassEncoder},
-    GlonassSample, MilliHz, Millimeter,
+    DbHz, GloSlot, GlonassSample, MilliHz, Millimeter,
 };
 
 const BASE_TS: u64 = 1_700_000_000_000;
@@ -26,8 +26,8 @@ fn smooth_samples(n: usize) -> Vec<GlonassSample> {
     (0..n)
         .map(|i| GlonassSample {
             timestamp_ms: BASE_TS + i as u64,
-            slot: 1,
-            cn0_dbhz: 42 + (i % 5) as u8,
+            slot: GloSlot::new(1).unwrap(),
+            cn0_dbhz: DbHz::new(42 + (i % 5) as u8).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 222),
             doppler_millihz: MilliHz::new(1_200_000 + i as i32 * 10),
             carrier_phase_cycles: Some(100_000_i64 + i as i64 * 21 * (1 << 16)),
@@ -41,8 +41,8 @@ fn constant_samples(n: usize) -> Vec<GlonassSample> {
     (0..n)
         .map(|i| GlonassSample {
             timestamp_ms: BASE_TS + i as u64,
-            slot: 0,
-            cn0_dbhz: 42,
+            slot: GloSlot::new(0).unwrap(),
+            cn0_dbhz: DbHz::new(42).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000),
             doppler_millihz: MilliHz::new(1_200_500),
             carrier_phase_cycles: None,
@@ -57,8 +57,8 @@ fn multi_slot_samples(n: usize) -> Vec<GlonassSample> {
     (0..n)
         .map(|i| GlonassSample {
             timestamp_ms: BASE_TS + i as u64,
-            slot: slots[i % 4],
-            cn0_dbhz: 38 + (i % 8) as u8,
+            slot: GloSlot::new(slots[i % 4]).unwrap(), // исправлено
+            cn0_dbhz: DbHz::new(38 + (i % 8) as u8).unwrap(), // исправлено
             pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 150),
             doppler_millihz: MilliHz::new(1_100_000 + i as i32 * 20),
             carrier_phase_cycles: if i % 3 == 0 {

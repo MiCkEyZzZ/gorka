@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use gorka::{GlonassDecoder, GlonassSample, MilliHz, Millimeter, StreamEncoder};
+use gorka::{DbHz, GloSlot, GlonassDecoder, GlonassSample, MilliHz, Millimeter, StreamEncoder};
 
 fn main() {
     println!("=== Gorka StreamEncoder performance test ===");
@@ -12,8 +12,8 @@ fn main() {
     let samples: Vec<GlonassSample> = (0..n_samples)
         .map(|i| GlonassSample {
             timestamp_ms: 1_700_000_000_000 + i as u64 * 1000,
-            slot: (i % 14) as i8 - 7,
-            cn0_dbhz: 42,
+            slot: GloSlot::new((i % 14) as i8 - 7).unwrap(), // GloSlot
+            cn0_dbhz: DbHz::new(42).unwrap(),                // DbHz
             pseudorange_mm: Millimeter::new(21_500_000_000),
             doppler_millihz: MilliHz::new(1_200_000),
             carrier_phase_cycles: Some(i as i64 * 65_536),
