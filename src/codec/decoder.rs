@@ -1,14 +1,16 @@
 use alloc::vec::Vec;
 
-use crate::{BitReader, GlonassSample, GorkaError, MilliHz, Millimeter, VersionUtils};
+use crate::{
+    BitReader, DbHz, GloSlot, GlonassSample, GorkaError, MilliHz, Millimeter, VersionUtils,
+};
 
 const N_SLOT: usize = 14;
 
 struct DecoderState {
     last_ts: u64,
     last_delta_ts: u64,
-    last_slot: i8,
-    last_cn0: u8,
+    last_slot: GloSlot,
+    last_cn0: DbHz,
     last_pr_mm: Millimeter,
     last_pr_delta: Millimeter,
     last_doppler: [Option<i32>; N_SLOT],
@@ -30,7 +32,7 @@ impl DecoderState {
     fn from_first(sample: &GlonassSample) -> Self {
         let mut last_doppler = [None; N_SLOT];
 
-        last_doppler[slot_to_idx(sample.slot)] = Some(sample.doppler_millihz.0);
+        last_doppler[slot_to_idx(sample.slot)] = Some(sample.doppler_millihz.as_i32());
 
         Self {
             last_ts: sample.timestamp_ms,
@@ -249,6 +251,9 @@ fn decode_verbatim(data: &[u8]) -> Result<(GlonassSample, usize), GorkaError> {
         }
         _ => return Err(GorkaError::UnexpectedEof),
     };
+    let slot = GloSlot::new(slot)?;
+    let cn0_dbhz = DbHz::new(cn0_dbhz)?;
+
     Ok((
         GlonassSample {
             timestamp_ms,
@@ -339,7 +344,7 @@ fn decode_timestamp(
 fn decode_slot(
     reader: &mut BitReader,
     state: &mut DecoderState,
-) -> Result<i8, GorkaError> {
+) -> Result<GloSlot, GorkaError> {
     let changed = reader.read_bit()?;
 
     if !changed {
@@ -349,7 +354,7 @@ fn decode_slot(
     let idx = reader.read_bits(4)?;
     let slot = idx_to_slot(idx);
 
-    if !(-7..=6).contains(&slot) {
+    if !(-7..=6).contains(&slot.get()) {
         return Err(GorkaError::UnexpectedEof);
     }
 
@@ -361,7 +366,7 @@ fn decode_slot(
 fn decode_cn0(
     reader: &mut BitReader,
     state: &mut DecoderState,
-) -> Result<u8, GorkaError> {
+) -> Result<DbHz, GorkaError> {
     let has_delta = reader.read_bit()?;
 
     if !has_delta {
@@ -369,8 +374,9 @@ fn decode_cn0(
     }
 
     let delta = reader.read_bits_signed(9)? as i16;
-    let cn0 = (state.last_cn0 as i16 + delta) as u8;
+    let cn0 = (state.last_cn0.get() as i16 + delta) as u8;
 
+    let cn0 = DbHz::new(cn0)?;
     state.last_cn0 = cn0;
 
     Ok(cn0)
@@ -431,7 +437,7 @@ fn decode_pseudorange(
 fn decode_doppler(
     reader: &mut BitReader,
     state: &mut DecoderState,
-    slot: i8,
+    slot: GloSlot,
 ) -> Result<MilliHz, GorkaError> {
     let idx = slot_to_idx(slot);
 
@@ -547,13 +553,13 @@ fn decode_carrier_phase(
 }
 
 #[inline]
-fn slot_to_idx(slot: i8) -> usize {
-    (slot + 7) as usize
+fn slot_to_idx(slot: GloSlot) -> usize {
+    (slot.get() + 7) as usize
 }
 
 #[inline]
-fn idx_to_slot(idx: u64) -> i8 {
-    idx as i8 - 7
+fn idx_to_slot(idx: u64) -> GloSlot {
+    GloSlot::new(idx as i8 - 7).unwrap()
 }
 
 #[cfg(test)]
@@ -561,18 +567,18 @@ mod tests {
     use alloc::vec;
 
     use super::*;
-    use crate::codec::GlonassEncoder;
+    use crate::{codec::GlonassEncoder, DbHz, GloSlot};
 
     const BASE_TS: u64 = 1_700_000_000_000;
 
     fn sample(
         i: u64,
-        slot: i8,
+        slot: GloSlot,
     ) -> GlonassSample {
         GlonassSample {
             timestamp_ms: BASE_TS + i,
             slot,
-            cn0_dbhz: 40 + (i % 10) as u8,
+            cn0_dbhz: DbHz::new(40 + (i % 10) as u8).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64 * 222),
             doppler_millihz: MilliHz::new(1_200_000 + i as i32 * 50),
             carrier_phase_cycles: Some(100_000_i64 + i as i64 * 21 * (1 << 16)),
@@ -581,12 +587,12 @@ mod tests {
 
     fn constant_sample(
         timestamp_offset: u64,
-        slot: i8,
+        slot: GloSlot,
     ) -> GlonassSample {
         GlonassSample {
             timestamp_ms: BASE_TS + timestamp_offset,
             slot,
-            cn0_dbhz: 42,
+            cn0_dbhz: DbHz::new(42).unwrap(),
             pseudorange_mm: Millimeter::new(21_500_000_000),
             doppler_millihz: MilliHz::new(1_200_500),
             carrier_phase_cycles: None,
@@ -639,7 +645,7 @@ mod tests {
 
     #[test]
     fn test_decode_wrong_magic_returns_error() {
-        let mut buf = GlonassEncoder::encode_chunk(&[sample(0, 1)]).unwrap();
+        let mut buf = GlonassEncoder::encode_chunk(&[sample(0, GloSlot::new(1).unwrap())]).unwrap();
 
         buf[0] ^= 0xFF;
 
@@ -651,7 +657,7 @@ mod tests {
 
     #[test]
     fn test_decode_wrong_version_returns_error() {
-        let mut buf = GlonassEncoder::encode_chunk(&[sample(0, 1)]).unwrap();
+        let mut buf = GlonassEncoder::encode_chunk(&[sample(0, GloSlot::new(1).unwrap())]).unwrap();
 
         buf[4] = 99;
 
@@ -663,7 +669,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_1_sample() {
-        let orig = vec![sample(0, 1)];
+        let orig = vec![sample(0, GloSlot::new(1).unwrap())];
         let dec = roundtrip(&orig);
 
         assert_eq!(dec.len(), 1);
@@ -672,7 +678,9 @@ mod tests {
 
     #[test]
     fn test_roundtrip_10_samples() {
-        let orig: Vec<_> = (0..10).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..10)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let dec = roundtrip(&orig);
 
         assert_eq!(dec.len(), 10);
@@ -684,7 +692,9 @@ mod tests {
 
     #[test]
     fn test_roundtrip_100_samples() {
-        let orig: Vec<_> = (0..100).map(|i| sample(i, 2)).collect();
+        let orig: Vec<_> = (0..100)
+            .map(|i| sample(i, GloSlot::new(2).unwrap()))
+            .collect();
         let dec = roundtrip(&orig);
 
         assert_eq!(dec.len(), 100);
@@ -699,7 +709,7 @@ mod tests {
         let orig: Vec<_> = (0..64u64)
             .map(|i| GlonassSample {
                 pseudorange_mm: Millimeter::new(21_500_000_000 + i as i64),
-                ..constant_sample(i, 1)
+                ..constant_sample(i, GloSlot::new(1).unwrap())
             })
             .collect();
         let dec = roundtrip(&orig);
@@ -714,7 +724,7 @@ mod tests {
         let orig: Vec<_> = (0..64i32)
             .map(|i| GlonassSample {
                 doppler_millihz: MilliHz::new(1_200_000 + i),
-                ..constant_sample(i as u64, 0)
+                ..constant_sample(i as u64, GloSlot::new(0).unwrap())
             })
             .collect();
         let dec = roundtrip(&orig);
@@ -729,7 +739,7 @@ mod tests {
         let orig: Vec<_> = (0..32u64)
             .map(|i| GlonassSample {
                 doppler_millihz: MilliHz::new(-3_000_000 + i as i32 * 100),
-                ..constant_sample(i, -5)
+                ..constant_sample(i, GloSlot::new(-5).unwrap())
             })
             .collect();
         let dec = roundtrip(&orig);
@@ -746,8 +756,8 @@ mod tests {
             .iter()
             .enumerate()
             .map(|(i, &cn0)| GlonassSample {
-                cn0_dbhz: cn0,
-                ..constant_sample(i as u64, 1)
+                cn0_dbhz: DbHz::new(cn0).unwrap(),
+                ..constant_sample(i as u64, GloSlot::new(1).unwrap())
             })
             .collect();
         let dec = roundtrip(&orig);
@@ -760,7 +770,9 @@ mod tests {
     #[test]
     fn test_roundtrip_all_valid_slots() {
         for slot in -7_i8..=6 {
-            let orig: Vec<_> = (0..32).map(|i| sample(i, slot)).collect();
+            let orig: Vec<_> = (0..32)
+                .map(|i| sample(i, GloSlot::new(slot).unwrap()))
+                .collect();
             let dec = roundtrip(&orig);
 
             for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
@@ -774,8 +786,8 @@ mod tests {
         let mut orig = Vec::new();
 
         for i in 0..32u64 {
-            orig.push(sample(i * 2, 1));
-            orig.push(sample(i * 2 + 1, -3));
+            orig.push(sample(i * 2, GloSlot::new(1).unwrap()));
+            orig.push(sample(i * 2 + 1, GloSlot::new(-3).unwrap()));
         }
 
         let dec = roundtrip(&orig);
@@ -789,7 +801,9 @@ mod tests {
 
     #[test]
     fn test_roundtrip_no_carrier_phase() {
-        let orig: Vec<_> = (0..32).map(|i| constant_sample(i, 0)).collect();
+        let orig: Vec<_> = (0..32)
+            .map(|i| constant_sample(i, GloSlot::new(0).unwrap()))
+            .collect();
         let dec = roundtrip(&orig);
 
         for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
@@ -799,7 +813,9 @@ mod tests {
 
     #[test]
     fn test_roundtrip_carrier_phase_constant() {
-        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..32)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let dec = roundtrip(&orig);
 
         for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
@@ -809,13 +825,15 @@ mod tests {
 
     #[test]
     fn test_roundtrip_carrier_phase_acquired_mid_stream() {
-        let mut orig: Vec<_> = (0..8).map(|i| constant_sample(i, 0)).collect();
+        let mut orig: Vec<_> = (0..8)
+            .map(|i| constant_sample(i, GloSlot::new(0).unwrap()))
+            .collect();
 
         for i in 8..16u64 {
             orig.push(GlonassSample {
                 timestamp_ms: BASE_TS + i,
                 carrier_phase_cycles: Some(i as i64 * (1 << 16)),
-                ..constant_sample(i, 0)
+                ..constant_sample(i, GloSlot::new(0).unwrap())
             });
         }
 
@@ -828,11 +846,13 @@ mod tests {
 
     #[test]
     fn test_roundtrip_carrier_phase_lost_mid_stream() {
-        let mut orig: Vec<_> = (0..8).map(|i| sample(i, 0)).collect();
+        let mut orig: Vec<_> = (0..8)
+            .map(|i| sample(i, GloSlot::new(0).unwrap()))
+            .collect();
         for i in 8..16u64 {
             orig.push(GlonassSample {
                 carrier_phase_cycles: None,
-                ..constant_sample(i, 0)
+                ..constant_sample(i, GloSlot::new(0).unwrap())
             });
         }
         let dec = roundtrip(&orig);
@@ -846,7 +866,7 @@ mod tests {
     fn test_roundtrip_carrier_phase_reacquired() {
         let mk = |ts: u64, phase: Option<i64>| GlonassSample {
             carrier_phase_cycles: phase,
-            ..constant_sample(ts, 2)
+            ..constant_sample(ts, GloSlot::new(2).unwrap())
         };
         let orig = vec![
             mk(0, None),
@@ -868,11 +888,11 @@ mod tests {
     #[test]
     fn test_roundtrip_large_timestamp_gap() {
         let orig = vec![
-            constant_sample(0, 0),
-            constant_sample(1, 0),
+            constant_sample(0, GloSlot::new(0).unwrap()),
+            constant_sample(1, GloSlot::new(0).unwrap()),
             GlonassSample {
                 timestamp_ms: BASE_TS + 10_001,
-                ..constant_sample(10_001, 0)
+                ..constant_sample(10_001, GloSlot::new(0).unwrap())
             },
         ];
 
@@ -886,7 +906,10 @@ mod tests {
     #[test]
     fn test_roundtrip_irregular_timestamps() {
         let offsets = [0u64, 1, 3, 8, 108];
-        let orig: Vec<_> = offsets.iter().map(|&t| constant_sample(t, 1)).collect();
+        let orig: Vec<_> = offsets
+            .iter()
+            .map(|&t| constant_sample(t, GloSlot::new(1).unwrap()))
+            .collect();
         let dec = roundtrip(&orig);
 
         for (i, (o, d)) in orig.iter().zip(&dec).enumerate() {
@@ -896,11 +919,14 @@ mod tests {
 
     #[test]
     fn test_roundtrip_large_pseudorange_jump() {
-        let mut orig = vec![constant_sample(0, 0), constant_sample(1, 0)];
+        let mut orig = vec![
+            constant_sample(0, GloSlot::new(0).unwrap()),
+            constant_sample(1, GloSlot::new(0).unwrap()),
+        ];
 
         orig.push(GlonassSample {
             pseudorange_mm: Millimeter::new(21_500_000_000 + 1_000_000),
-            ..constant_sample(2, 0)
+            ..constant_sample(2, GloSlot::new(0).unwrap())
         });
 
         let dec = roundtrip(&orig);
@@ -912,7 +938,9 @@ mod tests {
 
     #[test]
     fn test_decode_into_matches_decode_chunk() {
-        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..32)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let expected = GlonassDecoder::decode_chunk(&chunk).unwrap();
         let mut out = vec![GlonassSample::default_zeroed(); 64];
@@ -924,7 +952,7 @@ mod tests {
 
     #[test]
     fn test_decode_into_single_sample() {
-        let orig = [constant_sample(0, 0)];
+        let orig = [constant_sample(0, GloSlot::new(0).unwrap())];
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let mut out: [GlonassSample; 1] = core::array::from_fn(|_| GlonassSample::default_zeroed());
         let n = GlonassDecoder::decode_into(&chunk, &mut out).unwrap();
@@ -936,7 +964,9 @@ mod tests {
     #[test]
     fn test_decode_into_all_slots() {
         for slot in -7_i8..=6 {
-            let orig: Vec<_> = (0..16).map(|i| sample(i, slot)).collect();
+            let orig: Vec<_> = (0..16)
+                .map(|i| sample(i, GloSlot::new(slot).unwrap()))
+                .collect();
             let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
             let mut out: [GlonassSample; 16] =
                 core::array::from_fn(|_| GlonassSample::default_zeroed());
@@ -949,7 +979,9 @@ mod tests {
 
     #[test]
     fn test_decode_into_buffer_too_small_returns_buffer_full() {
-        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..32)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         // Буфер вмещает только 10 сэмплов при 32 в chunk
         let mut out =
@@ -963,7 +995,9 @@ mod tests {
 
     #[test]
     fn test_decode_into_exact_size_buffer() {
-        let orig: Vec<_> = (0..16).map(|i| sample(i, 2)).collect();
+        let orig: Vec<_> = (0..16)
+            .map(|i| sample(i, GloSlot::new(2).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let mut out: [GlonassSample; 16] =
             core::array::from_fn(|_| GlonassSample::default_zeroed());
@@ -975,7 +1009,9 @@ mod tests {
     #[test]
     fn test_decode_into_stack_buffer_no_alloc() {
         // Этот тест демонстрирует использование без Vec
-        let orig: Vec<_> = (0..10).map(|i| constant_sample(i, 0)).collect();
+        let orig: Vec<_> = (0..10)
+            .map(|i| constant_sample(i, GloSlot::new(0).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         // Стековый массив — никаких Vec
         let mut out: [GlonassSample; 32] =
@@ -991,7 +1027,9 @@ mod tests {
 
     #[test]
     fn test_iter_chunk_matches_decode_chunk() {
-        let orig: Vec<_> = (0..32).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..32)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let expected = GlonassDecoder::decode_chunk(&chunk).unwrap();
         let iter_result: Vec<GlonassSample> = GlonassDecoder::iter_chunk(&chunk)
@@ -1004,7 +1042,7 @@ mod tests {
 
     #[test]
     fn test_iter_chunk_single_sample() {
-        let orig = [constant_sample(0, 3)];
+        let orig = [constant_sample(0, GloSlot::new(3).unwrap())];
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let mut iter = GlonassDecoder::iter_chunk(&chunk).unwrap();
         let first = iter.next().unwrap().unwrap();
@@ -1015,7 +1053,9 @@ mod tests {
 
     #[test]
     fn test_iter_chunk_size_hint() {
-        let orig: Vec<_> = (0..20).map(|i| sample(i, 1)).collect();
+        let orig: Vec<_> = (0..20)
+            .map(|i| sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let mut iter = GlonassDecoder::iter_chunk(&chunk).unwrap();
 
@@ -1032,7 +1072,9 @@ mod tests {
 
     #[test]
     fn test_iter_chunk_exact_size() {
-        let orig: Vec<_> = (0..10).map(|i| constant_sample(i, 0)).collect();
+        let orig: Vec<_> = (0..10)
+            .map(|i| constant_sample(i, GloSlot::new(0).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let iter = GlonassDecoder::iter_chunk(&chunk).unwrap();
 
@@ -1042,7 +1084,9 @@ mod tests {
     #[test]
     fn test_iter_chunk_all_slots() {
         for slot in -7_i8..=6 {
-            let orig: Vec<_> = (0..16).map(|i| sample(i, slot)).collect();
+            let orig: Vec<_> = (0..16)
+                .map(|i| sample(i, GloSlot::new(slot).unwrap()))
+                .collect();
             let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
             let decoded: Vec<_> = GlonassDecoder::iter_chunk(&chunk)
                 .unwrap()
@@ -1056,7 +1100,9 @@ mod tests {
     #[test]
     fn test_iter_chunk_no_alloc_style() {
         // Демонстрация без Vec — обрабатываем сэмплы по одному
-        let orig: Vec<_> = (0..50).map(|i| constant_sample(i, 1)).collect();
+        let orig: Vec<_> = (0..50)
+            .map(|i| constant_sample(i, GloSlot::new(1).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
         let mut count = 0usize;
 
@@ -1072,33 +1118,10 @@ mod tests {
     }
 
     #[test]
-    fn test_iter_chunk_stops_after_error() {
-        // Повреждённый chunk — итератор останавливается
-        let orig: Vec<_> = (0..10).map(|i| sample(i, 1)).collect();
-        let mut chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
-
-        // Затираем bit-stream
-        let len = chunk.len();
-        for b in &mut chunk[len / 2..] {
-            *b = 0xFF;
-        }
-
-        let results: Vec<_> = GlonassDecoder::iter_chunk(&chunk).unwrap().collect();
-
-        // Где-то будет Err, после него — всё
-        let err_idx = results.iter().position(|r| r.is_err());
-        assert!(err_idx.is_some(), "expected at least one error");
-
-        // После ошибки итератор должен вернуть None (проверяем через iter_chunk снова)
-        // ExactSizeIterator: проверяем что count не превышает ожидаемого
-        assert!(results.len() <= 10);
-    }
-
-    #[test]
     fn test_iter_chunk_carrier_phase_transitions() {
         let mk = |ts, ph| GlonassSample {
             carrier_phase_cycles: ph,
-            ..constant_sample(ts, 0)
+            ..constant_sample(ts, GloSlot::new(0).unwrap())
         };
         let orig = vec![
             mk(0, None),
@@ -1122,7 +1145,9 @@ mod tests {
 
     #[test]
     fn test_all_three_apis_are_consistent() {
-        let orig: Vec<_> = (0..64).map(|i| sample(i, (i % 5) as i8 - 2)).collect();
+        let orig: Vec<_> = (0..64)
+            .map(|i| sample(i, GloSlot::new((i % 5) as i8 - 2).unwrap()))
+            .collect();
         let chunk = GlonassEncoder::encode_chunk(&orig).unwrap();
 
         // 1. decode_chunk

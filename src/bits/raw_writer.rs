@@ -122,16 +122,20 @@ impl<'a> BitWrite for RawBitWriter<'a> {
             return Ok(());
         }
 
-        // Предварительная проверка вместимости.
         if self.bits_available() < n as usize {
             return Err(GorkaError::BufferFull);
         }
 
         let avail = 8 - self.bit_pos;
 
-        // Fast path: все n бит помещаются в текущий байт
         if n <= avail {
-            self.buf[self.byte_pos] |= (value as u8) << (avail - n);
+            let masked = if n == 64 {
+                value
+            } else {
+                value & ((1u64 << n) - 1)
+            };
+
+            self.buf[self.byte_pos] |= (masked as u8) << (avail - n);
             self.bit_pos += n;
 
             if self.bit_pos == 8 {
@@ -146,15 +150,16 @@ impl<'a> BitWrite for RawBitWriter<'a> {
             return Ok(());
         }
 
-        // General path: биты пересекают границы байт
         let mut rem = n;
         let mut val = value;
 
-        // 1. заполнить хвост текущего байта.
+        // 1. заполнить текущий байт
         if self.bit_pos > 0 {
             let take = avail;
 
-            self.buf[self.byte_pos] |= (val >> (rem - take)) as u8;
+            let chunk = (val >> (rem - take)) & ((1u64 << take) - 1);
+            self.buf[self.byte_pos] |= chunk as u8;
+
             self.byte_pos += 1;
             self.bit_pos = 0;
 
@@ -169,18 +174,18 @@ impl<'a> BitWrite for RawBitWriter<'a> {
             }
         }
 
-        // 2. целые байты.
+        // 2. полные байты
         while rem >= 8 {
             rem -= 8;
 
             self.buf[self.byte_pos] = (val >> rem) as u8;
             self.byte_pos += 1;
-            self.bit_pos = 0;
         }
 
-        // 3. остаток бит.
+        // 3. остаток
         if rem > 0 {
-            self.buf[self.byte_pos] = (val as u8) << (8 - rem);
+            let chunk = val & ((1u64 << rem) - 1);
+            self.buf[self.byte_pos] = (chunk as u8) << (8 - rem);
             self.bit_pos = rem;
         }
 
@@ -404,42 +409,30 @@ mod tests {
 
     #[test]
     fn test_write_bits_matches_bitwise_all_widths() {
-        use crate::BitWriter;
-        let cases: &[(u64, u8)] = &[
-            (0b1, 1),
-            (0b101, 3),
-            (0b10101, 5),
-            (0xFF, 8),
-            (0x1234, 13),
-            (0xABCDE, 20),
-            (0xDEAD_BEEF, 32),
-            (u64::MAX >> 1, 63),
-            (u64::MAX, 64),
+        let cases: &[(u64, u8, &[u8])] = &[
+            (0b1, 1, &[0b1000_0000]),
+            (0b101, 3, &[0b1010_0000]),
+            (0b10101, 5, &[0b1010_1000]),
+            (0xFF, 8, &[0xFF]),
+            (0x1234, 13, &[0x91, 0xA0]),
+            (0xABCDE, 20, &[0xAB, 0xCD, 0xE0]),
+            (0xDEAD_BEEF, 32, &[0xDE, 0xAD, 0xBE, 0xEF]),
+            (
+                u64::MAX >> 1,
+                63,
+                &[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE],
+            ),
+            (u64::MAX, 64, &[0xFF; 8]),
         ];
 
-        for &(val, n) in cases {
-            // RawBitWriter
+        for &(val, n, expected) in cases {
             let mut raw_buf = [0u8; 16];
             let mut raw = RawBitWriter::new(&mut raw_buf);
 
             raw.write_bits(val, n).unwrap();
 
             let raw_bytes = raw.bytes_written();
-
-            // BitWriter (bitwise reference)
-            let mut w = BitWriter::new();
-
-            for i in (0..n).rev() {
-                w.write_bit((val >> i) & 1 == 1);
-            }
-
-            let ref_buf = w.finish();
-
-            assert_eq!(
-                &raw_buf[..raw_bytes],
-                ref_buf.as_slice(),
-                "val={val:#x} n={n}"
-            );
+            assert_eq!(&raw_buf[..raw_bytes], expected, "val={val:#x} n={n}");
         }
     }
 
@@ -458,7 +451,6 @@ mod tests {
 
     #[test]
     fn test_partial_full_partial() {
-        // 3b + 32b + 5b = 40b = 5 bytes
         let mut buf = [0u8; 8];
         let mut rw = RawBitWriter::new(&mut buf);
 
@@ -468,24 +460,7 @@ mod tests {
 
         let n = rw.bytes_written();
 
-        use crate::BitWriter;
-        let mut bw = BitWriter::new();
-
-        for i in (0..3u8).rev() {
-            bw.write_bit((0b111_u64 >> i) & 1 == 1);
-        }
-
-        for i in (0..32u8).rev() {
-            bw.write_bit((0xDEAD_BEEF_u64 >> i) & 1 == 1);
-        }
-
-        for i in (0..5u8).rev() {
-            bw.write_bit((0b10101_u64 >> i) & 1 == 1);
-        }
-
-        let ref_buf = bw.finish();
-
-        assert_eq!(&buf[..n], ref_buf.as_slice());
+        assert_eq!(&buf[..n], &[0xFB, 0xD5, 0xB7, 0xDD, 0xF5],);
     }
 
     #[test]

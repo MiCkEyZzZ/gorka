@@ -9,53 +9,53 @@
 
 ## encode/smooth
 
-| N samples | Throughput | Time/iter |
-| --------- | ---------- | --------- |
-| 128       | ~820 MiB/s | ~4.6 µs   |
-| 1024      | ~905 MiB/s | ~33.4 µs  |
-| 8192      | ~921 MiB/s | ~263 µs   |
+| N samples | Throughput   | Time/iter |
+| --------- | ------------ | --------- |
+| 128       | ~1.037 GiB/s | ~3.56 µs  |
+| 1024      | ~1.080 GiB/s | ~27.37 µs |
+| 8192      | ~1.071 GiB/s | ~220.6 µs |
 
 ## encode/constant (best case)
 
-| N samples | Throughput  | Time/iter |
-| --------- | ----------- | --------- |
-| 128       | ~2.10 GiB/s | ~1.30 µs  |
-| 1024      | ~2.38 GiB/s | ~9.23 µs  |
-| 8192      | ~2.50 GiB/s | ~70.1 µs  |
+| N samples | Throughput   | Time/iter |
+| --------- | ------------ | --------- |
+| 128       | ~1.557 GiB/s | ~1.76 µs  |
+| 1024      | ~1.586 GiB/s | ~13.83 µs |
+| 8192      | ~1.556 GiB/s | ~112.8 µs |
 
 ## encode/multi_slot
 
 | N samples | Throughput | Time/iter |
 | --------- | ---------- | --------- |
-| 128       | ~440 MiB/s | ~7.49 µs  |
-| 1024      | ~420 MiB/s | ~62.7 µs  |
-| 8192      | ~406 MiB/s | ~519 µs   |
+| 128       | ~738 MiB/s | ~4.46 µs  |
+| 1024      | ~767 MiB/s | ~34.35 µs |
+| 8192      | ~766 MiB/s | ~275.3 µs |
 
 ---
 
 ## decode/smooth
 
-| N samples | Throughput  |
-| --------- | ----------- |
-| 128       | ~61 MiB/s   |
-| 1024      | ~57.5 MiB/s |
-| 8192      | ~57.1 MiB/s |
+| N samples | Throughput |
+| --------- | ---------- |
+| 128       | ~161 MiB/s |
+| 1024      | ~151 MiB/s |
+| 8192      | ~149 MiB/s |
 
 ## decode/constant
 
 | N samples | Throughput  |
 | --------- | ----------- |
-| 128       | ~72.8 MiB/s |
-| 1024      | ~61.5 MiB/s |
-| 8192      | ~60.5 MiB/s |
+| 128       | ~69.7 MiB/s |
+| 1024      | ~59.3 MiB/s |
+| 8192      | ~57.3 MiB/s |
 
 ## decode/multi_slot
 
-| N samples | Throughput  |
-| --------- | ----------- |
-| 128       | ~67.3 MiB/s |
-| 1024      | ~65.3 MiB/s |
-| 8192      | ~65.0 MiB/s |
+| N samples | Throughput |
+| --------- | ---------- |
+| 128       | ~232 MiB/s |
+| 1024      | ~230 MiB/s |
+| 8192      | ~228 MiB/s |
 
 ---
 
@@ -63,8 +63,8 @@
 
 | N samples | Throughput |
 | --------- | ---------- |
-| 128       | ~272 MiB/s |
-| 1024      | ~286 MiB/s |
+| 128       | ~532 MiB/s |
+| 1024      | ~555 MiB/s |
 
 ---
 
@@ -72,26 +72,27 @@
 
 ### write_bits
 
-| Bits | Throughput    |
-| ---- | ------------- |
-| 8    | ~34.7 M ops/s |
-| 10   | ~36.0 M ops/s |
-| 32   | ~21.9 M ops/s |
-| 64   | ~9.38 M ops/s |
+| Bits | Throughput   |
+| ---- | ------------ |
+| 8    | ~214.8 MiB/s |
+| 9    | ~146.1 MiB/s |
+| 16   | ~292.5 MiB/s |
+| 32   | ~495.3 MiB/s |
+| 64   | ~859.3 MiB/s |
 
 ### write stream
 
-| Pattern      | Throughput     |
-| ------------ | -------------- |
-| 8-bit writes | ~100–110 MiB/s |
-| 1-bit writes | ~64–74 MiB/s   |
+| Pattern      | Throughput |
+| ------------ | ---------- |
+| 8-bit writes | ~461 MiB/s |
+| 1-bit writes | ~107 MiB/s |
 
 ### read stream
 
-| Pattern     | Throughput     |
-| ----------- | -------------- |
-| 8-bit reads | ~2.1–2.5 GiB/s |
-| 1-bit reads | ~42–43 MiB/s   |
+| Pattern     | Throughput   |
+| ----------- | ------------ |
+| 8-bit reads | ~1.074 GiB/s |
+| 1-bit reads | ~81 MiB/s    |
 
 ---
 

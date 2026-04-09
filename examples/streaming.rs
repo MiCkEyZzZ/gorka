@@ -6,7 +6,7 @@ use std::{
 
 use gorka::{
     io::{ChunkReader, ChunkWriter},
-    GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter,
+    DbHz, GloSlot, GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter,
 };
 
 /// Генератор наблюдений для одного спутника.
@@ -15,11 +15,13 @@ fn make_track(
     n: usize,
     base_ts_ms: u64,
 ) -> Vec<GlonassSample> {
+    let glo_slot = GloSlot::new(slot).unwrap();
+
     (0..n)
         .map(|i| GlonassSample {
             timestamp_ms: base_ts_ms + i as u64 * 1000, // 1 Гц
-            slot,
-            cn0_dbhz: 35 + (i % 10) as u8,
+            slot: glo_slot,
+            cn0_dbhz: DbHz::new(35 + (i % 10) as u8).unwrap(),
             pseudorange_mm: Millimeter::new(20_000_000_000 + i as i64 * 300),
             doppler_millihz: MilliHz::new(500_000 - i as i32 * 100),
             carrier_phase_cycles: Some(i as i64 * 1_048_576),
@@ -116,7 +118,7 @@ fn main() -> std::io::Result<()> {
         println!(
             "  chunk[{i}]: {} samples, slot k={:+}",
             track.len(),
-            track[0].slot
+            track[0].slot.get()
         );
 
         decoded_tracks.push(track);

@@ -1,4 +1,4 @@
-use gorka::{GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter};
+use gorka::{DbHz, GloSlot, GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter};
 
 fn main() {
     // Создаём серию наблюдений одного спутника
@@ -12,10 +12,10 @@ fn main() {
             timestamp_ms: base_ts_ms + i * 100,
 
             // FDMA-слот k ∈ [−7, +6]. Несущая: 1602 + k × 0.5625 МГц
-            slot: 1,
+            slot: GloSlot::new(1).unwrap(),
 
             // Отношение сигнал/шум [дБГц], типично 30–50
-            cn0_dbhz: 42 + (i % 5) as u8,
+            cn0_dbhz: DbHz::new(42 + (i % 5) as u8).unwrap(),
 
             // Псевдодальность в миллиметрах (1 мм точность)
             // Типично 19 100 000 000 .. 25 600 000 000 мм
@@ -85,8 +85,8 @@ fn main() {
     println!();
     println!("First sample:");
     println!("  timestamp_ms:    {}", s.timestamp_ms);
-    println!("  slot:            k={}", s.slot);
-    println!("  cn0_dbhz:        {} dBHz", s.cn0_dbhz);
+    println!("  slot:            {}", s.slot.get());
+    println!("  cn0_dbhz:        {} dBHz", s.cn0_dbhz.get());
     println!(
         "  pseudorange:     {:.3} m",
         s.pseudorange_mm.0 as f64 / 1_000.0

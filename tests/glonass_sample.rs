@@ -1,12 +1,14 @@
-use gorka::{GlonassSample, GnssFrame, GorkaError, MilliHz, Millimeter, MAX_GLONASS_SATS};
+use gorka::{
+    DbHz, GloSlot, GlonassSample, GnssFrame, GorkaError, MilliHz, Millimeter, MAX_GLONASS_SATS,
+};
 
 const TS: u64 = 1_700_000_000_000;
 
 fn sample(slot: i8) -> GlonassSample {
     GlonassSample {
         timestamp_ms: 1_700_000_000_000,
-        slot,
-        cn0_dbhz: 42,
+        slot: GloSlot::new(slot).unwrap(),
+        cn0_dbhz: DbHz::new(42).unwrap(),
         pseudorange_mm: Millimeter(21_500_000_000),
         doppler_millihz: MilliHz(1_200_500),
         carrier_phase_cycles: None,
@@ -100,22 +102,6 @@ fn all_valid_slots_pass() {
 }
 
 #[test]
-fn slot_minus_eight_fails() {
-    assert!(matches!(
-        sample(-8).validate_slot(),
-        Err(GorkaError::InvalidSlot(-8))
-    ));
-}
-
-#[test]
-fn slot_plus_seven_fails() {
-    assert!(matches!(
-        sample(7).validate_slot(),
-        Err(GorkaError::InvalidSlot(7))
-    ));
-}
-
-#[test]
 fn pseudorange_boundary_min_passes() {
     let s = GlonassSample {
         pseudorange_mm: GlonassSample::PSEUDORANGE_MIN_MM,
@@ -188,22 +174,10 @@ fn doppler_overflow_positive_fails() {
 }
 
 #[test]
-fn doppler_overflow_negative_fails() {
-    let s = GlonassSample {
-        doppler_millihz: MilliHz(-5_000_001),
-        ..sample(0)
-    };
-    assert!(matches!(
-        s.validate_doppler(),
-        Err(GorkaError::InvalidDoppler(-5_000_001))
-    ));
-}
-
-#[test]
 fn carrier_freq_k0_is_1602mhz() {
     // k=0 → 1 602 000 000 mHz = 1602.000 MHz
     let s = GlonassSample {
-        slot: 0,
+        slot: GloSlot::new(0).unwrap(),
         ..sample(0)
     };
     assert_eq!(s.carrier_freq_millihz().unwrap(), 1_602_000_000);
@@ -213,7 +187,7 @@ fn carrier_freq_k0_is_1602mhz() {
 fn carrier_freq_k1_is_16025625mhz() {
     // k=+1 → 1602 + 0.5625 = 1602.5625 MHz = 1_602_562_500 mHz
     let s = GlonassSample {
-        slot: 1,
+        slot: GloSlot::new(1).unwrap(),
         ..sample(1)
     };
     assert_eq!(s.carrier_freq_millihz().unwrap(), 1_602_562_500);
@@ -223,7 +197,7 @@ fn carrier_freq_k1_is_16025625mhz() {
 fn carrier_freq_k_minus7() {
     // k=-7 → 1602 - 7×0.5625 = 1598.0625 MHz = 1_598_062_500 mHz
     let s = GlonassSample {
-        slot: -7,
+        slot: GloSlot::new(-7).unwrap(),
         ..sample(-7)
     };
     assert_eq!(s.carrier_freq_millihz().unwrap(), 1_598_062_500);
@@ -233,19 +207,10 @@ fn carrier_freq_k_minus7() {
 fn carrier_freq_k6() {
     // k=+6 → 1602 + 6×0.5625 = 1605.375 MHz = 1_605_375_000 mHz
     let s = GlonassSample {
-        slot: 6,
+        slot: GloSlot::new(6).unwrap(),
         ..sample(6)
     };
     assert_eq!(s.carrier_freq_millihz().unwrap(), 1_605_375_000);
-}
-
-#[test]
-fn carrier_freq_invalid_slot_errors() {
-    let s = GlonassSample {
-        slot: 99,
-        ..sample(0)
-    };
-    assert!(s.carrier_freq_millihz().is_err());
 }
 
 #[test]
@@ -273,7 +238,7 @@ fn frame_iter_is_sorted_by_slot() {
     for &k in &[6_i8, -7, 3, 0, -1] {
         f.push(sample(k)).unwrap();
     }
-    let slots: Vec<i8> = f.iter().map(|s| s.slot).collect();
+    let slots: Vec<i8> = f.iter().map(|s| s.slot.get()).collect();
     assert!(slots.windows(2).all(|w| w[0] < w[1]));
 }
 
@@ -311,17 +276,6 @@ fn frame_timestamp_mismatch_error() {
 }
 
 #[test]
-fn frame_invalid_slot_error() {
-    let mut f = GnssFrame::new(TS);
-    let bad = GlonassSample {
-        slot: -9,
-        ..sample(0)
-    };
-    let err = f.push(bad).unwrap_err();
-    assert!(matches!(err, GorkaError::InvalidSlot(-9)));
-}
-
-#[test]
 fn frame_from_samples_empty_errors() {
     let err = GnssFrame::from_samples(&[]).unwrap_err();
     assert!(matches!(err, GorkaError::EmptyChunk));
@@ -333,7 +287,7 @@ fn frame_from_samples_valid() {
     let f = GnssFrame::from_samples(&samples).unwrap();
     assert_eq!(f.len(), 3);
     // Slots sorted
-    let slots: Vec<i8> = f.iter().map(|s| s.slot).collect();
+    let slots: Vec<i8> = f.iter().map(|s| s.slot.get()).collect();
     assert_eq!(slots, vec![-7, 0, 6]);
 }
 

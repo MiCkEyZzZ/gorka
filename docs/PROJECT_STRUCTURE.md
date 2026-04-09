@@ -16,7 +16,6 @@ gorka
 │   ├── CODEOWNERS
 │   └── pull_request_template.md
 ├── benches
-│   ├── bitio_bench.rs
 │   ├── decoder_bench.rs
 │   ├── encode_bench.rs
 │   ├── raw_bitio_bench.rs
@@ -35,7 +34,6 @@ gorka
 ├── examples
 │   ├── basic_encode.rs
 │   ├── compare.rs
-│   ├── no_std_demo.rs
 │   ├── no_std_demo_raw.rs
 │   ├── stream_basic.rs
 │   ├── stream_performance.rs
@@ -44,8 +42,7 @@ gorka
 │   ├── bits
 │   │   ├── mod.rs
 │   │   ├── raw_writer.rs
-│   │   ├── reader.rs
-│   │   └── writer.rs
+│   │   └── reader.rs
 │   ├── codec
 │   │   ├── format
 │   │   │   ├── mod.rs
@@ -72,13 +69,11 @@ gorka
 │   ├── lib.rs
 │   └── prelude.rs
 ├── tests
-│   ├── bit_property.rs
 │   ├── bit_raw_property.rs
 │   ├── codec_property.rs
 │   ├── compression_ratio.rs
 │   ├── encoder_tests.rs
 │   ├── glonass_sample.rs
-│   ├── test_bitstream.rs
 │   └── test_raw_bitwriter.rs
 ├── .gitignore
 ├── .editorconfig

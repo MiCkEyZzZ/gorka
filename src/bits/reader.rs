@@ -218,6 +218,7 @@ impl<'a> BitReader<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{BitWrite, RawBitWriter};
 
     #[test]
     fn test_new_reader_is_empty() {
@@ -447,8 +448,6 @@ mod tests {
 
     #[test]
     fn test_bulk_read_matches_bitwise_all_widths() {
-        use crate::BitWriter;
-
         // Encode a sequence of values with varying widths, then decode
         // using bulk reader and verify against bit-by-bit reference.
         let test_cases: &[(u64, u8)] = &[
@@ -462,18 +461,17 @@ mod tests {
             (u64::MAX >> 1, 63),
         ];
 
-        let mut w = BitWriter::new();
+        let mut buf = [0u8; 63];
+        let mut w = RawBitWriter::new(&mut buf);
 
         for &(val, n) in test_cases {
             w.write_bits(val, n).unwrap();
         }
 
-        let buf = w.finish();
-
-        // Bulk reader
-        let mut r_bulk = BitReader::new(&buf);
-        // Bitwise reference reader
-        let mut r_ref = BitReader::new(&buf);
+        let len = w.bytes_written();
+        let buf = &buf[..len];
+        let mut r_bulk = BitReader::new(buf);
+        let mut r_ref = BitReader::new(buf);
 
         for &(_, n) in test_cases {
             let bulk = r_bulk.read_bits(n).unwrap();
@@ -489,12 +487,11 @@ mod tests {
 
     #[test]
     fn test_read_64_bits() {
-        use crate::BitWriter;
-        let mut w = BitWriter::new();
+        let mut buf = [0u8; 8];
+        let mut w = RawBitWriter::new(&mut buf);
 
         w.write_bits(u64::MAX, 64).unwrap();
 
-        let buf = w.finish();
         let mut r = BitReader::new(&buf);
 
         assert_eq!(r.read_bits(64).unwrap(), u64::MAX);
@@ -502,15 +499,14 @@ mod tests {
 
     #[test]
     fn test_unaligned_read_64_bits() {
-        use crate::BitWriter;
-        let mut w = BitWriter::new();
+        let mut buf = [0u8; 16];
+        let mut w = RawBitWriter::new(&mut buf);
 
         w.write_bits(0b101, 3).unwrap(); // 3 bits prefix
         w.write_bits(0xDEADBEEFCAFEBABE, 64).unwrap();
 
-        let buf = w.finish();
-
-        let mut r = BitReader::new(&buf);
+        let len = w.bytes_written();
+        let mut r = BitReader::new(&buf[..len]);
 
         r.read_bits(3).unwrap(); // skip prefix
 
@@ -519,8 +515,6 @@ mod tests {
 
     #[test]
     fn test_roundtrip_signed() {
-        use crate::BitWriter;
-
         let values: &[(i64, u8)] = &[
             (0, 1),
             (-1, 2),
@@ -530,14 +524,15 @@ mod tests {
             (-1_000_000, 32),
             (1_000_000, 32),
         ];
-        let mut w = BitWriter::new();
+        let mut buf = [0u8; 64];
+        let mut w = RawBitWriter::new(&mut buf);
 
         for &(v, n) in values {
             w.write_bits_signed(v, n).unwrap();
         }
 
-        let buf = w.finish();
-        let mut r = BitReader::new(&buf);
+        let len = w.bytes_written();
+        let mut r = BitReader::new(&buf[..len]);
 
         for &(v, n) in values {
             assert_eq!(r.read_bits_signed(n).unwrap(), v, "v={v} n={n}");
