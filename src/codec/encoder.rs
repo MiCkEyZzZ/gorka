@@ -300,7 +300,6 @@ fn encode_doppler(
 }
 
 #[allow(deprecated)]
-// Carrier phase: необязательная, дельта-дельта.
 fn encode_carrier_phase(
     writer: &mut RawBitWriter,
     state: &mut EncoderState,
@@ -308,40 +307,49 @@ fn encode_carrier_phase(
 ) -> Result<(), GorkaError> {
     match (state.last_phase, phase) {
         (None, None) => {
-            writer.write_bits(0b00, 2)?; // '00' None -> None
+            writer.write_bits(0b00, 2)?;
+            state.last_phase_delta = None;
         }
-        (Some(_), None) => {
-            writer.write_bits(0b01, 2)?; // '01' Some -> None (phase lost)
-        }
-        (None, Some(p)) => {
-            writer.write_bits(0b10, 2)?; // '10' + 64b verbatim
-            writer.write_bits(p as u64, 64)?;
-        }
-        (Some(prev), Some(curr)) => {
-            let delta = curr - prev;
-            let prev_d = state.last_phase_delta.unwrap_or(0);
-            let dod = delta - prev_d;
-            let zz = encode_i64(dod);
 
-            writer.write_bits(0b11, 2)?; // prev '11', then branch
+        (Some(_), None) => {
+            writer.write_bits(0b01, 2)?;
+            state.last_phase_delta = None;
+        }
+
+        (None, Some(p)) => {
+            writer.write_bits(0b10, 2)?;
+            writer.write_bits(p as u64, 64)?;
+            state.last_phase_delta = None;
+        }
+
+        (Some(prev), Some(curr)) => {
+            writer.write_bits(0b11, 2)?;
+
+            let prev_d = state.last_phase_delta.unwrap_or(0);
+            let delta = curr - prev;
+            let dod = delta - prev_d;
 
             if dod == 0 {
-                writer.write_bit(false)?; // '110' dod == 0
-                state.last_phase_delta = Some(delta);
-            } else if zz < (1u64 << 32) {
-                writer.write_bits(0b10, 2)?; // '1110' + 32b
-                writer.write_bits_signed(dod, 32)?;
-                state.last_phase_delta = Some(delta);
+                writer.write_bit(false)?; // 110
+                state.last_phase_delta = Some(prev_d);
             } else {
-                writer.write_bits(0b11, 2)?; // '1111' + 64b verbatim (reset DoD)
-                writer.write_bits(curr as u64, 64)?;
-                state.last_phase_delta = None; // reset: next delta is "first"
+                writer.write_bit(true)?; // 111...
+                let zz = encode_i64(dod);
+
+                if zz < (1u64 << 32) {
+                    writer.write_bit(false)?; // 1110
+                    writer.write_bits_signed(dod, 32)?;
+                    state.last_phase_delta = Some(delta);
+                } else {
+                    writer.write_bit(true)?; // 1111
+                    writer.write_bits(curr as u64, 64)?;
+                    state.last_phase_delta = None;
+                }
             }
         }
     }
 
     state.last_phase = phase;
-
     Ok(())
 }
 

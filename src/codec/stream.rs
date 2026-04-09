@@ -401,39 +401,47 @@ fn enc_phase(
 ) -> Result<(), GorkaError> {
     match (state.last_phase, phase) {
         (None, None) => {
-            writer.write_bits(0b00, 2)?;
+            writer.write_bits(0b00, 2)?; // 00
+            state.last_phase_delta = None;
         }
+
         (Some(_), None) => {
-            writer.write_bits(0b01, 2)?;
+            writer.write_bits(0b01, 2)?; // 01
+            state.last_phase_delta = None; // сброс baseline
         }
+
         (None, Some(p)) => {
-            writer.write_bits(0b10, 2)?;
+            writer.write_bits(0b10, 2)?; // 10
             writer.write_bits(p as u64, 64)?;
+            state.last_phase_delta = None; // новый участок фазы
         }
+
         (Some(prev), Some(cur)) => {
-            let delta = cur - prev;
+            writer.write_bits(0b11, 2)?; // 11...
+
             let prev_d = state.last_phase_delta.unwrap_or(0);
+            let delta = cur - prev;
             let dod = delta - prev_d;
             let zz = encode_i64(dod);
 
-            writer.write_bits(0b11, 2)?;
-
             if dod == 0 {
-                writer.write_bit(false)?;
-                state.last_phase_delta = Some(delta);
+                writer.write_bit(false)?; // 110
+                state.last_phase_delta = Some(prev_d);
             } else if zz < (1u64 << 32) {
-                writer.write_bits(0b10, 2)?;
+                writer.write_bit(true)?; // 111...
+                writer.write_bit(false)?; // 1110
                 writer.write_bits_signed(dod, 32)?;
                 state.last_phase_delta = Some(delta);
             } else {
-                writer.write_bits(0b11, 2)?;
+                writer.write_bit(true)?; // 111...
+                writer.write_bit(true)?; // 1111
                 writer.write_bits(cur as u64, 64)?;
+                state.last_phase_delta = None; // сброс DoD-baseline
             }
         }
     }
 
     state.last_phase = phase;
-
     Ok(())
 }
 
