@@ -38,3 +38,6 @@ deps.txt
 *.csv
 *.png
 *.bin
+test-ledger/
+*.log
+*.sst

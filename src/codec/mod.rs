@@ -1,6 +1,5 @@
 pub mod decoder;
 pub mod delta;
-#[allow(deprecated)]
 pub mod encoder;
 pub mod format;
 pub mod stream;

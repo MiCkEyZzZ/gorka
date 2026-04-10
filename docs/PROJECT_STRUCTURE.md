@@ -55,7 +55,9 @@ gorka
 │   │   └── zigzag.rs
 │   ├── gnss
 │   │   ├── beidou.rs
+│   │   ├── cdma.rs
 │   │   ├── constellation.rs
+│   │   ├── fdma.rs
 │   │   ├── frame.rs
 │   │   ├── galileo.rs
 │   │   ├── glonass.rs

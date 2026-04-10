@@ -43,8 +43,8 @@ an individual is representing the project or its community.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported
-by contacting the project team at [EMAIL]. All complaints will be reviewed and
-investigated promptly and fairly.
+by contacting the project team at [zedmfix@hmail.com](zedmfix@gmail.com). All
+complaints will be reviewed and investigated promptly and fairly.
 
 Project maintainers are obligated to maintain confidentiality with regard to the
 reporter of an incident.
