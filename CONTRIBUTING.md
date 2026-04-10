@@ -110,7 +110,7 @@ for example, **GPS**.
 Create `src/gnss/gps.rs`:
 
 ```rust
-use crate::{error::GorkaError, MilliHz, Millimeter};
+use crate::{GorkaError, MilliHz, Millimeter, DbHz};
 
 /// One GPS L1 C/A observation.
 ///
@@ -120,7 +120,7 @@ use crate::{error::GorkaError, MilliHz, Millimeter};
 pub struct GpsSample {
     pub timestamp_ms:         u64,
     pub prn:                  u8,          // 1..=32
-    pub cn0_dbhz:             u8,
+    pub cn0_dbhz:             DbHz,
     pub pseudorange_mm:       Millimeter,
     pub doppler_millihz:      MilliHz,
     pub carrier_phase_cycles: Option<i64>,

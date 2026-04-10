@@ -6,6 +6,10 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **gnss**
+  - добавил базовую реализацию `FdmaState` в файле `fdma.rs`
+  - добавил базовую реализацию `CdmaState` в файле `cdma.rs`
+
 - **gnss/frame**
   - implement stack-allocated storage with `[Option<GlonassSample>; 14]`
   - enforce single-epoch invariant via `timestamp_ms`

@@ -14,7 +14,9 @@
 //! | `types`         | [`Millimeter`], [`MilliHz`] — fixed-point newtypes     |
 
 pub mod beidou;
+pub mod cdma;
 pub mod constellation;
+pub mod fdma;
 pub mod frame;
 pub mod galileo;
 pub mod glonass;
@@ -23,7 +25,9 @@ pub mod measurement;
 pub mod types;
 
 pub use beidou::*;
+pub use cdma::*;
 pub use constellation::*;
+pub use fdma::*;
 pub use frame::*;
 pub use galileo::*;
 pub use glonass::*;
