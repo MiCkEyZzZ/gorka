@@ -213,37 +213,65 @@ zz     = zigzag_encode(dod)
 
 ### 4.5 Doppler — per-slot delta с FDMA-коррекцией
 
-Каждый из 14 слотов ГЛОНАСС имеет собственную несущую частоту, поэтому Doppler
-для разных слотов нельзя дельта-кодировать совместно. Encoder хранит
-`last_doppler: [Option<i32>; 14]` с отдельным состоянием для каждого слота.
-
-**Первое появление слота** (state `last_doppler[idx] == None`):
+Каждый из 14 слотов ГЛОНАСС имеет собственную несущую частоту:
 
 ```text
-write_bit(false)            // флаг: verbatim
-write_bits(doppler as u32, 32)   // 32 бита LE (знаковый i32 as u32)
+f_L1(k) = 1_602_000_000 + k * 562_500 мГц (k ∈ [-7, +6])
 ```
 
-Итого: **33 бита**.
+Поэтому Doppler для разных слотов нельзя дельта-кодировать совместно - межслотная
+разница несущих достигает 7 × 562 500 ≈ 3.9 МГц, что делает обычные дельты
+огромными при чередовании спутников.
 
-**Последующие появления** (state `last_doppler[idx] == Some(prev)`):
+Encoder хранит `FdmaState` с отдельным EMA-baseline для каждого слота.
+Baseline обновляется с α = 1/128 через bitshift (без умножений):
 
 ```text
-delta = doppler as i64 - prev as i64
-zz    = zigzag_encode(delta)
+baseline_new = baseline_old + (observed - baseline_old) >> 7
 ```
 
-| Prefix | Условие    | Payload | Итого бит | Покрытие delta       |
-| ------ | ---------- | ------- | --------- | -------------------- |
-| `10`   | delta == 0 | —       | 2         | 0 мГц                |
-| `110`  | zz < 2¹⁴   | 14b zz  | 17        | ±8 191 мГц (~8.2 Гц) |
-| `111`  | иначе      | 32b abs | 35        | любой сдвиг          |
+В bitstream кодируется **residual**, а не абсолютное значение:
 
-Для `111`-bucket payload = `doppler as u32` (32 бита, знак через two's complement).
+```text
+residual = observed − baseline_old
+```
 
-> **Примечание:** флаг `0` для первого появления и первый бит `1` для последующих
-> — намеренная асимметрия. Decoder определяет тип по состоянию `last_doppler[idx]`,
-> а не по значению флага.
+После ~128 эпох baseline сходится к реальной Doppler-частоте слота,
+остаток residual типично < ±200 мГц — укладывается в 14-битный bucket.
+
+> **CDMA (GPS/Galileo/BeiDou):** для CDMA-созвездий все спутники используют
+> одну несущую, baseline не нужен. Используется простое дельта-кодирование
+> через `CdmaState` (`src/codec/cdma.rs`).
+
+#### Wire format
+
+**Первое появление слота** (`FdmaState::baseline[idx] == None`):
+
+```text
+write_bit(false)                    // флаг: verbatim
+write_bits(doppler as u32, 32)      // 32 бита (знаковый i32 as u32)
+```
+
+**Последующие появления** (`baseline[idx] == Some(prev)`):
+
+```text
+residual = doppler − prev_baseline
+zz       = zigzag_encode(residual as i64)
+```
+
+| Prefix | Условие         | Payload | Итого бит | Покрытие residual    |
+| ------ | --------------- | ------- | --------- | -------------------- |
+| `10`   | residual == 0   | —       | 2         | 0 мГц                |
+| `110`  | zz < 2¹⁴        | 14b zz  | 17        | ±8 191 мГц (~8.2 Гц) |
+| `111`  | иначе (большой) | 32b abs | 35        | любой скачок         |
+
+Для `111`-bucket payload = `doppler as u32` (32 бита); baseline сбрасывается
+до текущего `doppler` (re-seed).
+
+> **Асимметрия decoder/encoder:** флаг `0` означает первое появление, а
+> `1` — последующие. Decoder определяет тип по состоянию `FdmaState`, а не
+> по значению флага. Это намеренно — обеспечивает компактность (1 бит флага
+> вместо 2-битного префикса для first/subsequent).
 
 ### 4.6 Carrier phase — опциональная delta-of-delta
 
