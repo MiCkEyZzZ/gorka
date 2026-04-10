@@ -6,6 +6,16 @@ All notable changes to **Gorka** are documented in this file.
 
 ### Added
 
+- **gnss/frame**
+  - implement stack-allocated storage with `[Option<GlonassSample>; 14]`
+  - enforce single-epoch invariant via `timestamp_ms`
+  - maintain deterministic ordering by slot (insertion sort)
+  - provide lookup helpers (`get_by_slot`, `contains_slot`, iterators)
+  - add `from_samples` constructors with validation
+  - support grouping heterogeneous samples into epochs
+  - integrate with encoder via `GnssEpoch::encode`
+  - keep core API `no_std`-friendly (no heap allocation required)
+
 - **error**
   - добавлены новые варианты ошибок для повышения надёжности и диагностики:
     - `InvalidSlotIndex` — некорректный внутренний индекс слота
