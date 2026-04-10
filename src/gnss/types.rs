@@ -104,7 +104,7 @@ pub struct BdsPrn(u8);
 /// Use [`GloSlot::new`] to construct with validation. Retrieve inner value via
 /// [`GloSlot::get`].
 #[repr(transparent)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct GloSlot(i8);
 
 impl Millimeter {
