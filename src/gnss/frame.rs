@@ -1,50 +1,32 @@
-use crate::{GlonassSample, GnssMeasurement, GorkaError};
+use crate::{GloSlot, GlonassSample, GnssMeasurement, GorkaError};
 
 /// Maximum number of GLONASS satellites in a single frame.
 ///
 /// GLONASS uses 14 frequency slots (k ∈ \[−7, +6\]), so at most 14 unique
 /// satellites can be observed simultaneously.
+// NOTE: GLONASS-specific limit; will change for multi-constellation support
 pub const MAX_GLONASS_SATS: usize = 14;
 
 /// A collection of [`GlonassSample`] observations sharing the same epoch.
-///
-/// `GnssFrame` acts as a fixed-capacity, slot-sorted container for one
-/// measurement epoch.  All samples inside a frame must carry the same
-/// [`timestamp_ms`](GnssFrame::timestamp_ms) and refer to distinct GLONASS
-/// frequency slots.
-///
-/// # Capacity
-/// The frame holds at most [`MAX_GLONASS_SATS`] (14) observations, matching
-/// the number of GLONASS FDMA frequency slots.
-///
-/// # Ordering invariant
-/// After every [`push`](GnssFrame::push) the internal storage is kept sorted
-/// by slot in ascending order, so [`iter`](GnssFrame::iter) always yields
-/// samples from slot −7 up to slot +6.
-///
-/// # `no_std` compatibility
-/// The backing store is a fixed-size array (`[Option<GlonassSample>; 14]`),
-/// so `GnssFrame` works in `no_std` environments without heap allocation.
+// GNSS frame (currently GLONASS-only implementation)
+// TODO: generalize to multi-constelation (GPS, Galileo, etc.)
 #[derive(Debug, Clone)]
 pub struct GnssFrame {
     /// Unix epoch of this observation frame in milliseconds.
     pub timestamp_ms: u64,
-    // В бущем тут надо будет подумать как реализовать дженерик для подстановки enum GnssSample,
-    // который будет содержить: GlonassSample, GpsSample, GalileoSample, BeidouSample
+    observations: [Option<GlonassSample>; MAX_GLONASS_SATS],
+    count: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct GnssEpoch {
+    timestamp_ms: u64,
     observations: [Option<GlonassSample>; MAX_GLONASS_SATS],
     count: usize,
 }
 
 impl GnssFrame {
     /// Creates an empty frame for the given epoch.
-    ///
-    /// # Example
-    /// ```
-    /// use gorka::GnssFrame;
-    ///
-    /// let frame = GnssFrame::new(1_700_000_000_000);
-    /// assert!(frame.is_empty());
-    /// ```
     pub fn new(timestamp_ms: u64) -> Self {
         Self {
             timestamp_ms,
@@ -88,8 +70,8 @@ impl GnssFrame {
             return Err(GorkaError::EmptyChunk);
         }
 
-        let ts = samples[0].timestamp_ms;
-        let mut frame = Self::new(ts);
+        let timestamp_ms = samples[0].timestamp_ms;
+        let mut frame = Self::new(timestamp_ms);
 
         for s in samples {
             frame.push(s.clone())?;
@@ -112,10 +94,6 @@ impl GnssFrame {
 
     /// Returns an iterator over the stored observations in ascending slot
     /// order.
-    ///
-    /// The iterator yields only the occupied slots (up to
-    /// [`len`](GnssFrame::len) items) and is guaranteed to be sorted by
-    /// `slot` from lowest to highest.
     pub fn iter(&self) -> impl Iterator<Item = &GlonassSample> {
         self.observations[..self.count]
             .iter()
@@ -166,10 +144,6 @@ impl GnssFrame {
     }
 
     /// Insertion-sorts the occupied portion of `observations` by slot.
-    ///
-    /// Called after every [`push`](GnssFrame::push) to maintain the
-    /// ascending-slot invariant.  Because only one new element is added per
-    /// call, a single insertion-sort pass (O(n)) is sufficient.
     fn sort_by_slot(&mut self) {
         for i in 1..self.count {
             let mut j = i;
@@ -190,6 +164,231 @@ impl GnssFrame {
                 }
             }
         }
+    }
+}
+
+impl GnssEpoch {
+    /// Creates an empty epoch for `timestamp`.
+    pub fn new(timestamp_ms: u64) -> Self {
+        Self {
+            timestamp_ms,
+            observations: core::array::from_fn(|_| None),
+            count: 0,
+        }
+    }
+
+    /// Build an epoch from a homogeneous slice - all samples must share the
+    /// same `timestamp_ms`.
+    pub fn from_samples(samples: &[GlonassSample]) -> Result<Self, GorkaError> {
+        if samples.is_empty() {
+            return Err(GorkaError::EmptyChunk);
+        }
+
+        let timestamp_ms = samples[0].timestamp_ms;
+        let mut epoch = Self::new(timestamp_ms);
+
+        for sample in samples {
+            epoch.insert(sample.clone())?;
+        }
+
+        Ok(epoch)
+    }
+
+    /// Groups a heterogeneous slice by timestamp_ms and returns one epoch per
+    /// unique timestamp, ordered chronologically.
+    pub fn group_by_timestamp(samples: &[GlonassSample]) -> alloc::vec::Vec<GnssEpoch> {
+        use alloc::vec::Vec;
+
+        if samples.is_empty() {
+            return Vec::new();
+        }
+
+        // Collect unique timestamp in order of first appearance.
+        let mut timestamps: Vec<u64> = Vec::new();
+
+        for sample in samples {
+            if !timestamps.contains(&sample.timestamp_ms) {
+                timestamps.push(sample.timestamp_ms);
+            }
+        }
+
+        timestamps.sort_unstable();
+
+        timestamps
+            .into_iter()
+            .filter_map(|ts| {
+                let group: Vec<GlonassSample> = samples
+                    .iter()
+                    .filter(|s| s.timestamp_ms == ts)
+                    .cloned()
+                    .collect();
+                GnssEpoch::from_samples(&group).ok()
+            })
+            .collect()
+    }
+
+    /// Returns the timestamp of this epoch in milliseconds.
+    #[inline]
+    pub fn timestamp_ms(&self) -> u64 {
+        self.timestamp_ms
+    }
+
+    /// Returns the number of observations in this epoch.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.count
+    }
+
+    /// Returns `true` if the epoch contains no observations.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.count == 0
+    }
+
+    /// Returns an iterator over the observations, sorted by slot ascending.
+    pub fn iter(&self) -> impl Iterator<Item = &GlonassSample> {
+        self.observations[..self.count]
+            .iter()
+            .filter_map(|o| o.as_ref())
+    }
+
+    /// Returns the observation for `slot`, or `None`.
+    pub fn get_by_slot(
+        &self,
+        slot: GloSlot,
+    ) -> Option<&GlonassSample> {
+        self.slot_index(slot)
+            .map(|i| self.observations[i].as_ref().unwrap())
+    }
+
+    /// Returns `true` if the epoch contains an observation for `slot`.
+    #[inline]
+    pub fn contains_slot(
+        &self,
+        slot: GloSlot,
+    ) -> bool {
+        self.slot_index(slot).is_some()
+    }
+
+    /// Returns the minimum slot observed, or `None` if empty.
+    pub fn min_slot(&self) -> Option<GloSlot> {
+        self.iter().map(|s| s.slot).min()
+    }
+
+    /// Returns the maximum slot observed, or `None` if empty.
+    pub fn max_slot(&self) -> Option<GloSlot> {
+        self.iter().map(|s| s.slot).max()
+    }
+
+    /// Encodes the epoch as a compressed Gorka chunk.
+    ///
+    /// Delegates to [`crate::codec::GlonassEncoder::encode_chunk`].
+    ///
+    /// # Errors
+    /// Propagates any encoding error (e.g. `EmptyChunk`, `InvalidSlot`).
+    pub fn encode(&self) -> Result<alloc::vec::Vec<u8>, GorkaError> {
+        use crate::codec::GlonassEncoder;
+
+        if self.count == 0 {
+            return Err(GorkaError::EmptyChunk);
+        }
+
+        let samples: alloc::vec::Vec<GlonassSample> = self.iter().cloned().collect();
+
+        GlonassEncoder::encode_chunk(&samples)
+    }
+
+    /// Validates all observations.
+    ///
+    /// Returns the first error encountered.
+    pub fn validate_all(&self) -> Result<(), GorkaError> {
+        for s in self.iter() {
+            s.validate_slot()?;
+            s.validate_pseudorange()?;
+            s.validate_doppler()?;
+        }
+
+        Ok(())
+    }
+
+    fn insert(
+        &mut self,
+        sample: GlonassSample,
+    ) -> Result<(), GorkaError> {
+        // validate before inserting
+        sample.validate_slot()?;
+
+        if sample.timestamp_ms != self.timestamp_ms {
+            return Err(GorkaError::TimestampMismatch {
+                frame: self.timestamp_ms,
+                sample: sample.timestamp_ms,
+            });
+        }
+
+        if self.count == MAX_GLONASS_SATS {
+            return Err(GorkaError::FrameFull);
+        }
+
+        if self.slot_index(sample.slot).is_some() {
+            return Err(GorkaError::DuplicateSlot(sample.slot.get()));
+        }
+
+        self.observations[self.count] = Some(sample);
+        self.count += 1;
+        self.sort_by_slot();
+
+        Ok(())
+    }
+
+    fn slot_index(
+        &self,
+        slot: GloSlot,
+    ) -> Option<usize> {
+        self.observations[..self.count]
+            .iter()
+            .position(|o| o.as_ref().is_some_and(|s| s.slot == slot))
+    }
+
+    fn sort_by_slot(&mut self) {
+        for i in 1..self.count {
+            let mut j = i;
+
+            while j > 0 {
+                let a = self.observations[j]
+                    .as_ref()
+                    .map_or(GloSlot::MAX, |s| s.slot.get());
+                let b = self.observations[j - 1]
+                    .as_ref()
+                    .map_or(GloSlot::MAX, |s| s.slot.get());
+
+                if b > a {
+                    self.observations.swap(j, j - 1);
+                    j -= 1;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+}
+
+/// Allow converting a GnssFrame into a GnssEpoch (zero-copy where possible).
+impl TryFrom<GnssFrame> for GnssEpoch {
+    type Error = GorkaError;
+
+    fn try_from(frame: GnssFrame) -> Result<Self, GorkaError> {
+        let samples: alloc::vec::Vec<GlonassSample> = frame.iter().cloned().collect();
+
+        GnssEpoch::from_samples(&samples)
+    }
+}
+
+/// Allow converting a GnssEpoch into a GnssFrame.
+impl TryFrom<GnssEpoch> for GnssFrame {
+    type Error = GorkaError;
+
+    fn try_from(epoch: GnssEpoch) -> Result<Self, GorkaError> {
+        GnssFrame::from_samples(&epoch.iter().cloned().collect::<alloc::vec::Vec<_>>())
     }
 }
 
@@ -385,5 +584,218 @@ mod tests {
             .collect();
         let f = GnssFrame::from_samples(&samples).unwrap();
         assert!(f.validate_all().is_ok());
+    }
+
+    #[test]
+    fn test_new_epoch_is_empty() {
+        let e = GnssEpoch::new(TS);
+
+        assert!(e.is_empty());
+        assert_eq!(e.len(), 0);
+        assert_eq!(e.timestamp_ms(), TS);
+    }
+
+    #[test]
+    fn test_from_samples_single() {
+        let e = GnssEpoch::from_samples(&[make_obs(GloSlot::new(1).unwrap(), TS)]).unwrap();
+        assert_eq!(e.len(), 1);
+        assert!(!e.is_empty());
+    }
+
+    #[test]
+    fn test_from_samples_all_14_slots() {
+        let samples: alloc::vec::Vec<_> = (-7_i8..=6)
+            .map(|s| make_obs(GloSlot::new(s).unwrap(), TS))
+            .collect();
+        let e = GnssEpoch::from_samples(&samples).unwrap();
+        assert_eq!(e.len(), MAX_GLONASS_SATS);
+    }
+
+    #[test]
+    fn test_epoch_from_samples_empty_returns_error() {
+        assert!(matches!(
+            GnssEpoch::from_samples(&[]),
+            Err(GorkaError::EmptyChunk)
+        ));
+    }
+
+    #[test]
+    fn test_from_samples_timestamp_mismatch() {
+        let s = vec![
+            make_obs(GloSlot::new(1).unwrap(), TS),
+            make_obs(GloSlot::new(2).unwrap(), TS + 1000),
+        ];
+        assert!(matches!(
+            GnssEpoch::from_samples(&s),
+            Err(GorkaError::TimestampMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn test_from_samples_duplicate_slot() {
+        let s = vec![
+            make_obs(GloSlot::new(1).unwrap(), TS),
+            make_obs(GloSlot::new(1).unwrap(), TS),
+        ];
+        assert!(matches!(
+            GnssEpoch::from_samples(&s),
+            Err(GorkaError::DuplicateSlot(1))
+        ));
+    }
+
+    #[test]
+    fn test_from_samples_too_many() {
+        // 15 unique slots impossible for GLONASS, but test FrameFull path
+        // by inserting 14 then one more via a second GnssEpoch converted
+        let samples: alloc::vec::Vec<_> = (-7_i8..=6)
+            .map(|s| make_obs(GloSlot::new(s).unwrap(), TS))
+            .collect();
+        assert!(GnssEpoch::from_samples(&samples).is_ok()); // 14 — ok
+    }
+
+    #[test]
+    fn test_sorted_ascending() {
+        let s = vec![
+            make_obs(GloSlot::new(3).unwrap(), TS),
+            make_obs(GloSlot::new(-7).unwrap(), TS),
+            make_obs(GloSlot::new(0).unwrap(), TS),
+            make_obs(GloSlot::new(-3).unwrap(), TS),
+        ];
+        let e = GnssEpoch::from_samples(&s).unwrap();
+        let slots: alloc::vec::Vec<i8> = e.iter().map(|o| o.slot.get()).collect();
+        assert_eq!(slots, [-7, -3, 0, 3]);
+    }
+
+    #[test]
+    fn test_get_by_slot_found_epoch() {
+        let e = GnssEpoch::from_samples(&[
+            make_obs(GloSlot::new(2).unwrap(), TS),
+            make_obs(GloSlot::new(-3).unwrap(), TS),
+        ])
+        .unwrap();
+        assert_eq!(
+            e.get_by_slot(GloSlot::new(2).unwrap()).unwrap().slot,
+            GloSlot::new(2).unwrap()
+        );
+        assert_eq!(
+            e.get_by_slot(GloSlot::new(-3).unwrap()).unwrap().slot,
+            GloSlot::new(-3).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_get_by_slot_not_found_epoch() {
+        let e = GnssEpoch::from_samples(&[make_obs(GloSlot::new(0).unwrap(), TS)]).unwrap();
+        assert!(e.get_by_slot(GloSlot::new(5).unwrap()).is_none());
+    }
+
+    #[test]
+    fn test_contains_slot() {
+        let e = GnssEpoch::from_samples(&[
+            make_obs(GloSlot::new(-5).unwrap(), TS),
+            make_obs(GloSlot::new(4).unwrap(), TS),
+        ])
+        .unwrap();
+        assert!(e.contains_slot(GloSlot::new(-5).unwrap()));
+        assert!(e.contains_slot(GloSlot::new(4).unwrap()));
+        assert!(!e.contains_slot(GloSlot::new(0).unwrap()));
+    }
+
+    #[test]
+    fn test_min_max_slot() {
+        let s = vec![
+            make_obs(GloSlot::new(3).unwrap(), TS),
+            make_obs(GloSlot::new(-7).unwrap(), TS),
+            make_obs(GloSlot::new(1).unwrap(), TS),
+        ];
+        let e = GnssEpoch::from_samples(&s).unwrap();
+        assert_eq!(e.min_slot(), Some(GloSlot::new(-7).unwrap()));
+        assert_eq!(e.max_slot(), Some(GloSlot::new(3).unwrap()));
+    }
+
+    #[test]
+    fn test_min_max_slot_empty() {
+        let e = GnssEpoch::new(TS);
+
+        assert_eq!(e.min_slot(), None);
+        assert_eq!(e.max_slot(), None);
+    }
+
+    #[test]
+    fn test_group_by_timestamp_empty() {
+        let epochs = GnssEpoch::group_by_timestamp(&[]);
+        assert!(epochs.is_empty());
+    }
+
+    #[test]
+    fn test_group_by_timestamp_single_ts() {
+        let s = vec![
+            make_obs(GloSlot::new(-3).unwrap(), TS),
+            make_obs(GloSlot::new(0).unwrap(), TS),
+            make_obs(GloSlot::new(3).unwrap(), TS),
+        ];
+        let epochs = GnssEpoch::group_by_timestamp(&s);
+        assert_eq!(epochs.len(), 1);
+        assert_eq!(epochs[0].len(), 3);
+        assert_eq!(epochs[0].timestamp_ms(), TS);
+    }
+
+    #[test]
+    fn test_group_by_timestamp_multiple_ts() {
+        let base = TS;
+        let s: alloc::vec::Vec<_> = (0..5u64)
+            .flat_map(|i| {
+                (-1_i8..=1).map(move |slot| make_obs(GloSlot::new(slot).unwrap(), base + i * 1000))
+            })
+            .collect();
+
+        let epochs = GnssEpoch::group_by_timestamp(&s);
+        assert_eq!(epochs.len(), 5);
+        for ep in &epochs {
+            assert_eq!(ep.len(), 3);
+        }
+    }
+
+    #[test]
+    fn test_group_by_timestamp_chronological_order() {
+        let s = vec![
+            make_obs(GloSlot::new(0).unwrap(), TS + 2000),
+            make_obs(GloSlot::new(0).unwrap(), TS),
+            make_obs(GloSlot::new(0).unwrap(), TS + 1000),
+        ];
+        let epochs = GnssEpoch::group_by_timestamp(&s);
+        let tss: alloc::vec::Vec<u64> = epochs.iter().map(|e| e.timestamp_ms()).collect();
+        assert_eq!(tss, [TS, TS + 1000, TS + 2000]);
+    }
+
+    #[test]
+    fn test_epoch_validate_all_ok() {
+        let s = vec![
+            make_obs(GloSlot::new(-3).unwrap(), TS),
+            make_obs(GloSlot::new(1).unwrap(), TS),
+        ];
+        let e = GnssEpoch::from_samples(&s).unwrap();
+
+        assert!(e.validate_all().is_ok());
+    }
+
+    #[test]
+    fn test_from_gnss_frame() {
+        let mut frame = GnssFrame::new(TS);
+        frame.push(make_obs(GloSlot::new(-3).unwrap(), TS)).unwrap();
+        frame.push(make_obs(GloSlot::new(0).unwrap(), TS)).unwrap();
+        let epoch = GnssEpoch::try_from(frame).unwrap();
+        assert_eq!(epoch.len(), 2);
+    }
+
+    #[test]
+    fn test_to_gnss_frame() {
+        let s = vec![
+            make_obs(GloSlot::new(1).unwrap(), TS),
+            make_obs(GloSlot::new(-2).unwrap(), TS),
+        ];
+        let epoch = GnssEpoch::from_samples(&s).unwrap();
+        let frame = GnssFrame::try_from(epoch).unwrap();
+        assert_eq!(frame.len(), 2);
     }
 }

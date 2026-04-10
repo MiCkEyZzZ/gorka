@@ -19,18 +19,25 @@ use crate::{DbHz, GorkaError, MilliHz, Millimeter, SatelliteId};
 pub trait GnssMeasurement {
     /// Unix timestamp of this observation in milliseconds.
     fn timestamp_ms(&self) -> u64;
+
     /// Unique satellite identifier (constellation + numeric id).
     fn satellite_id(&self) -> SatelliteId;
+
     /// Carrier-to-noise density ratio in dB·Hz.
     fn cn0_dbhz(&self) -> DbHz;
+
     /// Pseudorange in millimetres.
     fn pseudorange_mm(&self) -> Millimeter;
+
     /// Doppler shift in millihertz.
     fn doppler_millihz(&self) -> MilliHz;
+
     /// Accumulated carrier phase in 2⁻³² cycles, if available.
     fn carrier_phase_cycles(&self) -> Option<i64>;
+
     /// Validates all fields. Returns the first error found.
     fn validate(&self) -> Result<(), GorkaError>;
+
     /// Returns `true` if the signal is considered tracked.
     ///
     /// Default implementation: `cn0_dbhz >= 20`.
@@ -48,14 +55,19 @@ const MAX_DOPPLER_MHZ: i32 = 10_000_000;
 pub struct GnssSample {
     /// Unix timestamp in milliseconds.
     timestamp_ms: u64,
+
     /// Satellite identifier (constellation + id).
     satellite_id: SatelliteId,
+
     /// Carrier-to-noise density in dB·Hz.
     cn0_dbhz: DbHz,
+
     /// Pseudorange in millimetres.
     pseudorange_mm: Millimeter,
+
     /// Doppler shift in millihertz.
     doppler_millihz: MilliHz,
+
     /// Accumulated carrier phase in 2⁻³² cycles, `None` if not tracked.
     carrier_phase_cycles: Option<i64>,
 }
