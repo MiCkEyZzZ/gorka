@@ -448,7 +448,7 @@ fn enc_phase(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::codec::{GlonassDecoder, GlonassEncoder};
+    use crate::{GlonassDecoder, GlonassEncoder};
 
     const BASE_TS: u64 = 1_700_000_000_000;
 

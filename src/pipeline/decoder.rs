@@ -573,7 +573,7 @@ mod tests {
     use alloc::vec;
 
     use super::*;
-    use crate::{codec::GlonassEncoder, DbHz, GloSlot};
+    use crate::{DbHz, GloSlot, GlonassEncoder};
 
     const BASE_TS: u64 = 1_700_000_000_000;
 

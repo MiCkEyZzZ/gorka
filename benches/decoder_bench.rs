@@ -8,10 +8,7 @@
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use gorka::{
-    codec::{GlonassDecoder, GlonassEncoder},
-    DbHz, GloSlot, GlonassSample, MilliHz, Millimeter,
-};
+use gorka::{DbHz, GloSlot, GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter};
 
 const BASE_TS: u64 = 1_700_000_000_000;
 

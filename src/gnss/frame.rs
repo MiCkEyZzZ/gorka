@@ -282,12 +282,12 @@ impl GnssEpoch {
 
     /// Encodes the epoch as a compressed Gorka chunk.
     ///
-    /// Delegates to [`crate::codec::GlonassEncoder::encode_chunk`].
+    /// Delegates to [`crate::GlonassEncoder::encode_chunk`].
     ///
     /// # Errors
     /// Propagates any encoding error (e.g. `EmptyChunk`, `InvalidSlot`).
     pub fn encode(&self) -> Result<alloc::vec::Vec<u8>, GorkaError> {
-        use crate::codec::GlonassEncoder;
+        use crate::pipeline::GlonassEncoder;
 
         if self.count == 0 {
             return Err(GorkaError::EmptyChunk);

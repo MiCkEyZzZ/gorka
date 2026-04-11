@@ -1,4 +1,4 @@
-use gorka::{codec::GlonassEncoder, DbHz, GloSlot, GlonassSample, MilliHz, Millimeter};
+use gorka::{DbHz, GloSlot, GlonassEncoder, GlonassSample, MilliHz, Millimeter};
 
 const BASE_TS: u64 = 1_700_000_000_000;
 

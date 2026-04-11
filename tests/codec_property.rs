@@ -1,7 +1,4 @@
-use gorka::{
-    codec::{GlonassDecoder, GlonassEncoder},
-    DbHz, GloSlot, GlonassSample, MilliHz, Millimeter,
-};
+use gorka::{DbHz, GloSlot, GlonassDecoder, GlonassEncoder, GlonassSample, MilliHz, Millimeter};
 use proptest::prelude::*;
 
 const BASE_TS: u64 = 1_700_000_000_000;
