@@ -28,6 +28,7 @@ extern crate alloc;
 
 pub mod bits;
 pub mod codec;
+pub mod domain;
 pub mod error;
 pub mod gnss;
 pub mod prelude;
@@ -48,11 +49,12 @@ pub use codec::{
     FormatVersion, GlonassDecoder, GlonassEncoder, StreamEncoder, VersionUtils, CHUNK_MAGIC,
     STREAM_ENCODER_MIN_BUF_NO_PHASE, STREAM_ENCODER_MIN_BUF_WITH_PHASE,
 };
+pub use domain::{BdsPrn, DbHz, GalSvn, GloSlot, GpsPrn, Hertz, MilliHz, Millimeter};
 pub use error::GorkaError;
 pub use gnss::{
-    decode_doppler_cdma, encode_doppler_cdma, encode_doppler_fdma, BdsPrn, BeidouSample, CdmaState,
-    ConstellationType, DbHz, FdmaState, GalSvn, GalileoSample, GloSlot, GlonassSample, GnssEpoch,
-    GnssFrame, GnssMeasurement, GnssSample, GpsPrn, GpsSample, Hertz, MilliHz, Millimeter,
-    SatelliteId, BDS_B1C_FREQ, BDS_B1I_FREQ, BDS_B2A_FREQ, CNO_TRACK_THRESHOLD, EMA_SHIFT,
-    GAL_E1_FREQ, GAL_E5A_FREQ, GAL_E5B_FREQ, GPS_L1_FREQ, GPS_L2_FREQ, MAX_GLONASS_SATS, N_SLOT,
+    decode_doppler_cdma, encode_doppler_cdma, encode_doppler_fdma, BeidouSample, CdmaState,
+    ConstellationType, FdmaState, GalileoSample, GlonassSample, GnssEpoch, GnssFrame,
+    GnssMeasurement, GnssSample, GpsSample, SatelliteId, BDS_B1C_FREQ, BDS_B1I_FREQ, BDS_B2A_FREQ,
+    CNO_TRACK_THRESHOLD, EMA_SHIFT, GAL_E1_FREQ, GAL_E5A_FREQ, GAL_E5B_FREQ, GPS_L1_FREQ,
+    GPS_L2_FREQ, MAX_GLONASS_SATS, N_SLOT,
 };
