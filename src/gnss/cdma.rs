@@ -89,7 +89,12 @@ pub fn decode_doppler_cdma(
 ) -> Result<MilliHz, GorkaError> {
     match state.last {
         None => {
-            let _flag = reader.read_bit()?;
+            let flag = reader.read_bit()?;
+
+            if flag {
+                return Err(GorkaError::InvalidBitPattern);
+            }
+
             let raw = reader.read_bits(32)? as u32 as i32;
 
             state.last = Some(raw);
