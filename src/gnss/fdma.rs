@@ -6,6 +6,35 @@
 //! ```text
 //! f_L1(k) = 1 602 + k × 0.5625  MHz   (k ∈ [-7, +6])
 //! ```
+//!
+//! Because every slot has a *different* carrier, the Doppler frequency observed
+//! on the ground contains a per-slot **frequency offset**.  When observations
+//! alternate across slots — e.g. slot -3, +1, -3, +1, … — a naïve inter-sample
+//! delta would include the large inter-slot frequency difference every time.
+//!
+//! # Solution — per-slot EMA baseline
+//!
+//! [`FdmaState`] maintains a separate Doppler baseline per slot.  The baseline
+//! is updated via a low-pass **Exponential Moving Average** (EMA) with
+//! α = 1/128, implemented as a bitshift to stay embedded-friendly:
+//!
+//! ```text
+//! baseline_new = baseline_old + (observed - baseline_old) >> 7
+//! ```
+//!
+//! The value encoded in the bitstream is the **residual**:
+//!
+//! ```text
+//! residual = observed − baseline_old
+//! ```
+//!
+//! This keeps residuals small even for interleaved multi-slot streams.
+//!
+//! # CDMA comparison
+//!
+//! GPS, Galileo and BeiDou all share a single carrier per band — no
+//! per-satellite frequency offset.  See [`crate::gnss::cdma`] for the simpler
+//! CDMA path.
 
 use crate::{encode_i64, BitReader, BitWrite, GloSlot, GorkaError, MilliHz, RawBitWriter};
 
@@ -13,11 +42,23 @@ use crate::{encode_i64, BitReader, BitWrite, GloSlot, GorkaError, MilliHz, RawBi
 pub const N_SLOT: usize = 14;
 
 /// EMA shift: α = 1 / (1 << EMA_SHIFT) = 1/128.
+///
+/// Large value -> slower convergence, smaller residuals one converged.
+/// 128 epochs at 1 Hz ≈ 2 minutes to reach ~63% of the true value (one
+/// time-constant of the first-order IIR filter).
 pub const EMA_SHIFT: u32 = 7;
 
 /// GLONASS FDMA per-slot Doppler baseline state.
+///
+/// Stores one EMA baseline per slot in millihertz.  `None` means the slot
+/// has not yet been observed in this chunk.
+///
+/// The struct is intentionally small (14 × 4 = 56 bytes + 14 option tags)
+/// and `Copy`-able so it can be embedded in encoder/decoder state without
+/// heap allocation.
 #[derive(Debug, Clone, Copy)]
 pub struct FdmaState {
+    /// Per-slot EMA baseline in millihertz.  `None` = not yet seen.
     baseline: [Option<i32>; N_SLOT],
 }
 

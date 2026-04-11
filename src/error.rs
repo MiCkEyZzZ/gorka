@@ -99,6 +99,11 @@ pub enum GorkaError {
     ///
     /// This indicates the value exceeded internal numeric bounds.
     OverflowDoppler,
+
+    /// Invalid bit pattern encountered during decoding.
+    ///
+    /// Indicates corrupted or desynchronized bitstream.
+    InvalidBitPattern,
 }
 
 impl fmt::Display for GorkaError {
@@ -179,6 +184,12 @@ impl fmt::Display for GorkaError {
             }
             Self::OverflowDoppler => {
                 write!(f, "doppler value overflow")
+            }
+            Self::InvalidBitPattern => {
+                write!(
+                    f,
+                    "invalid bit pattern in bitstream (corrupted or desynchronized)"
+                )
             }
         }
     }
