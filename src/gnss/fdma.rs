@@ -48,6 +48,12 @@ pub const N_SLOT: usize = 14;
 /// time-constant of the first-order IIR filter).
 pub const EMA_SHIFT: u32 = 7;
 
+/// Bits used for small residual encoding (zigzag residual path)
+const FDMA_RESIDUAL_BITS: u8 = 14;
+
+/// Bits used for full verbatim fallback encoding
+const FDMA_VERBATIM_BITS: u8 = 32;
+
 /// GLONASS FDMA per-slot Doppler baseline state.
 ///
 /// Stores one EMA baseline per slot in millihertz.  `None` means the slot
@@ -59,7 +65,7 @@ pub const EMA_SHIFT: u32 = 7;
 #[derive(Debug, Clone, Copy)]
 pub struct FdmaState {
     /// Per-slot EMA baseline in millihertz.  `None` = not yet seen.
-    baseline: [Option<i32>; N_SLOT],
+    baseline: [Option<MilliHz>; N_SLOT],
 }
 
 impl FdmaState {
@@ -80,7 +86,7 @@ impl FdmaState {
     pub fn baseline(
         &self,
         slot: GloSlot,
-    ) -> Option<i32> {
+    ) -> Option<MilliHz> {
         self.baseline[Self::idx(slot)]
     }
 
@@ -93,8 +99,8 @@ impl FdmaState {
     pub fn update(
         &mut self,
         slot: GloSlot,
-        observed: i32,
-    ) -> i32 {
+        observed: MilliHz,
+    ) -> MilliHz {
         let idx = Self::idx(slot);
 
         match self.baseline[idx] {
@@ -102,17 +108,17 @@ impl FdmaState {
                 // First observation: seed baseline, residual = 0.
                 // Caller writes verbatim.
                 self.baseline[idx] = Some(observed);
-                0
+                MilliHz(0)
             }
             Some(prev) => {
                 // EMA: new = prev + (observed - prev) >> EMA_SHIFT
-                let diff = (observed as i64 - prev as i64) >> EMA_SHIFT;
-                let new_baseline = prev.wrapping_add(diff as i32);
+                let diff = (observed.0 as i64 - prev.0 as i64) >> EMA_SHIFT;
+                let new_baseline = MilliHz((prev.0 as i64 + diff) as i32);
 
                 self.baseline[idx] = Some(new_baseline);
 
                 // Residual relative to previous baseline (what we encode).
-                observed.wrapping_sub(prev)
+                MilliHz(observed.0.wrapping_sub(prev.0))
             }
         }
     }
@@ -124,16 +130,16 @@ impl FdmaState {
     pub fn reconstruct(
         &mut self,
         slot: GloSlot,
-        residual: i32,
-    ) -> Result<i32, GorkaError> {
+        residual: MilliHz,
+    ) -> Result<MilliHz, GorkaError> {
         let idx = Self::idx(slot);
         let prev = self.baseline[idx].ok_or(GorkaError::UnexpectedEof)?;
-        let observed = prev.wrapping_add(residual);
+        let observed = MilliHz(prev.0.wrapping_add(residual.0));
 
         // Advance EMA identically to the encoder.
-        let diff = (observed as i64 - prev as i64) >> EMA_SHIFT;
+        let diff = ((observed.0 as i64 - prev.0 as i64) >> EMA_SHIFT) as i32;
 
-        self.baseline[idx] = Some(prev.wrapping_add(diff as i32));
+        self.baseline[idx] = Some(MilliHz(prev.0.wrapping_add(diff)));
 
         Ok(observed)
     }
@@ -159,14 +165,14 @@ pub fn encode_doppler_fdma(
     writer: &mut RawBitWriter,
     state: &mut FdmaState,
     slot: GloSlot,
-    observed: i32,
+    observed: MilliHz,
 ) -> Result<(), GorkaError> {
     let idx = FdmaState::idx(slot);
 
     if state.baseline[idx].is_none() {
         // First observation: write verbatim, seed baseline.
         writer.write_bit(false)?;
-        writer.write_bits(observed as u64 & 0xFFFF_FFFF, 32)?;
+        writer.write_bits(observed.0 as u64 & 0xFFFF_FFFF, 32)?;
 
         state.baseline[idx] = Some(observed);
 
@@ -174,17 +180,20 @@ pub fn encode_doppler_fdma(
     }
 
     // Compute residual (delta from previous baseline) and advance EMA.
-    let residual = state.update(slot, observed);
-    let zz = encode_i64(residual as i64);
+    let prev = state.baseline[idx].unwrap();
+    let residual = MilliHz(observed.0.wrapping_sub(prev.0));
+    let encoded = encode_i64(residual.0 as i64);
 
-    if residual == 0 {
+    if residual.0 == 0 {
         writer.write_bits(0b10, 2)?; // '10'
-    } else if zz < (1u64 << 14) {
+    } else if encoded < (1u64 << FDMA_RESIDUAL_BITS as u64) {
         writer.write_bits(0b110, 3)?; // '110' + 14b
-        writer.write_bits_signed(residual as i64, 14)?;
+        writer.write_bits_signed(residual.0 as i64, FDMA_RESIDUAL_BITS)?;
+
+        state.update(slot, observed);
     } else {
         writer.write_bits(0b111, 3)?; // '111' + 32b
-        writer.write_bits(observed as u64 & 0xFFFF_FFFF, 32)?;
+        writer.write_bits(observed.0 as u64 & 0xFFFF_FFFF, FDMA_VERBATIM_BITS)?;
 
         // Re-seed baseline on large jump to avoid compounding error.
         state.baseline[idx] = Some(observed);
@@ -203,12 +212,16 @@ pub fn decode_doppler_fdma(
 
     if state.baseline[idx].is_none() {
         // First observation: verbatim, flag bit is '0'
-        let _flag = reader.read_bit()?; // always false
+        let flag = reader.read_bit()?;
+
+        debug_assert!(!flag);
+
         let raw = reader.read_bits(32)? as u32 as i32;
+        let observed = MilliHz(raw);
 
-        state.baseline[idx] = Some(raw);
+        state.baseline[idx] = Some(observed);
 
-        return Ok(MilliHz(raw));
+        return Ok(observed);
     }
 
     let b0 = reader.read_bit()?;
@@ -220,7 +233,7 @@ pub fn decode_doppler_fdma(
             let prev = state.baseline[idx].unwrap();
 
             // EMA advance with zero residual = no change.
-            Ok(MilliHz(prev))
+            Ok(prev)
         }
         // '11x'
         (true, true) => {
@@ -228,17 +241,18 @@ pub fn decode_doppler_fdma(
 
             if !b2 {
                 // '110' + 14b zigzag residual
-                let residual = reader.read_bits_signed(14)? as i32;
-                let observed = state.reconstruct(slot, residual)?;
+                let residual = MilliHz(reader.read_bits_signed(FDMA_RESIDUAL_BITS)? as i32);
 
-                Ok(MilliHz(observed))
+                let observed = state.reconstruct(slot, residual)?;
+                Ok(observed)
             } else {
                 // '111' + 32b verbatim (large jump, re-seed)
-                let raw = reader.read_bits(32)? as u32 as i32;
+                let raw = reader.read_bits(FDMA_VERBATIM_BITS)? as u32 as i32;
 
-                state.baseline[idx] = Some(raw);
+                let observed = MilliHz(raw);
+                state.baseline[idx] = Some(observed);
 
-                Ok(MilliHz(raw))
+                Ok(observed)
             }
         }
         _ => Err(GorkaError::UnexpectedEof),
@@ -261,7 +275,7 @@ mod tests {
         let mut writer = RawBitWriter::new(&mut buf);
 
         for &(s, v) in values {
-            encode_doppler_fdma(&mut writer, &mut enc_state, s, v).unwrap();
+            encode_doppler_fdma(&mut writer, &mut enc_state, s, MilliHz(v)).unwrap();
         }
 
         let n = writer.bytes_written();
@@ -293,7 +307,7 @@ mod tests {
     fn test_fdma_state_reset() {
         let mut s = FdmaState::default();
 
-        s.update(slot(0), 1_200_000);
+        s.update(slot(0), MilliHz(1_200_000));
         s.reset();
 
         assert_eq!(s.baseline(slot(0)), None);
@@ -302,10 +316,10 @@ mod tests {
     #[test]
     fn test_fdma_first_observation_seeds_baseline() {
         let mut s = FdmaState::default();
-        let residual = s.update(slot(1), 1_200_500);
+        let residual = s.update(slot(1), MilliHz(1_200_500));
 
-        assert_eq!(residual, 0);
-        assert_eq!(s.baseline(slot(1)), Some(1_200_500));
+        assert_eq!(residual, MilliHz(0));
+        assert_eq!(s.baseline(slot(1)), Some(MilliHz(1_200_500)));
     }
 
     #[test]
@@ -313,29 +327,32 @@ mod tests {
         // seed at 0, observe 128 → diff = 128 >> 7 = 1 → baseline = 1
         let mut s = FdmaState::default();
 
-        s.update(slot(0), 0);
-        s.update(slot(0), 128);
+        s.update(slot(0), MilliHz(0));
+        s.update(slot(0), MilliHz(128));
 
-        assert_eq!(s.baseline(slot(0)), Some(1));
+        assert_eq!(s.baseline(slot(0)), Some(MilliHz(1)));
     }
 
     #[test]
     fn test_fdma_ema_converges() {
         let mut s = FdmaState::default();
-        let target = 1_200_000i32;
+        let target = MilliHz(1_200_000i32);
 
-        s.update(slot(0), 0);
+        s.update(slot(0), MilliHz(0));
 
         for _ in 0..1024 {
             s.update(slot(0), target);
         }
 
         let b = s.baseline(slot(0)).unwrap();
-        let err = (b - target).abs();
+        let err = (b.0 - target.0).abs();
 
         assert!(
-            err < target / 100,
-            "baseline {b} did not converge to {target} (err={err})"
+            err < target.0 / 100,
+            "baseline {} did not converge to {} (err={})",
+            b.0,
+            target.0,
+            err
         );
     }
 
@@ -343,26 +360,28 @@ mod tests {
     fn test_fdma_independent_slots() {
         let mut s = FdmaState::default();
 
-        s.update(slot(-7), 1_000_000);
-        s.update(slot(6), 2_000_000);
+        s.update(slot(-7), MilliHz(1_000_000));
+        s.update(slot(6), MilliHz(2_000_000));
 
-        assert_eq!(s.baseline(slot(-7)), Some(1_000_000));
-        assert_eq!(s.baseline(slot(6)), Some(2_000_000));
+        assert_eq!(s.baseline(slot(-7)), Some(MilliHz(1_000_000)));
+        assert_eq!(s.baseline(slot(6)), Some(MilliHz(2_000_000)));
     }
 
     #[test]
     fn test_baseline_convergence_rate() {
         // After 128 steps, baseline should exceed 63% of target
         let mut s = FdmaState::default();
-        let target = 1_200_000i32;
+        let target = MilliHz(1_200_000i32);
 
-        s.update(slot(0), 0);
+        s.update(slot(0), MilliHz(0));
 
         for _ in 0..128 {
             s.update(slot(0), target);
         }
 
-        let fraction = s.baseline(slot(0)).unwrap() as f64 / target as f64;
+        let baseline = s.baseline(slot(0)).unwrap();
+
+        let fraction = baseline.0 as f64 / target.0 as f64;
 
         assert!(
             fraction > 0.60,
