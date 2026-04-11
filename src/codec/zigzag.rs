@@ -5,7 +5,12 @@ pub fn encode_i64(value: i64) -> u64 {
 
 #[inline]
 pub fn decode_i64(zz: u64) -> i64 {
-    ((zz >> 1) as i64) ^ -((zz & 1) as i64)
+    let n = (zz >> 1) as i64;
+    if (zz & 1) == 0 {
+        n
+    } else {
+        !n
+    }
 }
 
 #[cfg(test)]
