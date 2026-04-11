@@ -33,7 +33,7 @@
 //! # CDMA comparison
 //!
 //! GPS, Galileo and BeiDou all share a single carrier per band — no
-//! per-satellite frequency offset.  See [`crate::codec::cdma`] for the simpler
+//! per-satellite frequency offset.  See [`crate::gnss::cdma`] for the simpler
 //! CDMA path.
 
 use crate::{encode_i64, BitReader, BitWrite, GloSlot, GorkaError, MilliHz, RawBitWriter};
