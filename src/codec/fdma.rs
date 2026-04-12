@@ -186,6 +186,8 @@ impl DopplerCodec for FdmaCodec {
 
         if residual.0 == 0 {
             writer.write_bits(0b10, 2)?; // '10'
+
+            state.update(id, value);
         } else if encoded < (1u64 << FDMA_RESIDUAL_BITS) {
             writer.write_bits(0b110, 3)?; // '110' + 14b
             writer.write_bits_signed(residual.0 as i64, FDMA_RESIDUAL_BITS)?;
@@ -230,6 +232,8 @@ impl DopplerCodec for FdmaCodec {
             // '10' — residual == 0, baseline doesn't change
             (true, false) => {
                 let prev = state.baseline[idx].unwrap();
+
+                state.update(id, prev);
 
                 // EMA advance with zero residual = no change.
                 Ok(prev)
