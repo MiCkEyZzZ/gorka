@@ -123,7 +123,7 @@ impl GnssMeasurement for GlonassSample {
     }
 
     #[inline]
-    fn satellite_id(&self) -> super::SatelliteId {
+    fn satellite_id(&self) -> SatelliteId {
         SatelliteId::Glonass(self.slot)
     }
 

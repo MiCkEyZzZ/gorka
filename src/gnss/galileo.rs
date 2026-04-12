@@ -102,7 +102,7 @@ impl GnssMeasurement for GalileoSample {
         self.carrier_phase_cycles
     }
 
-    fn satellite_id(&self) -> super::SatelliteId {
+    fn satellite_id(&self) -> SatelliteId {
         SatelliteId::Galileo(self.svn)
     }
 

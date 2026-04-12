@@ -4,8 +4,6 @@
 //!
 //! | Module          | Contents                                               |
 //! |-----------------|--------------------------------------------------------|
-//! | `constellation` | [`ConstellationType`], [`SatelliteId`]                 |
-//! | `measurement`   | [`GnssMeasurement`] trait, [`GnssSample`]              |
 //! | `glonass`       | [`GlonassSample`] (FDMA, codec-ready)                  |
 //! | `gps`           | [`GpsSample`] (CDMA, data model only)                  |
 //! | `galileo`       | [`GalileoSample`] (CDMA, data model only)              |
@@ -14,20 +12,16 @@
 
 pub mod beidou;
 pub mod cdma;
-pub mod constellation;
 pub mod fdma;
 pub mod frame;
 pub mod galileo;
 pub mod glonass;
 pub mod gps;
-pub mod measurement;
 
 pub use beidou::*;
 pub use cdma::*;
-pub use constellation::*;
 pub use fdma::*;
 pub use frame::*;
 pub use galileo::*;
 pub use glonass::*;
 pub use gps::*;
-pub use measurement::*;
