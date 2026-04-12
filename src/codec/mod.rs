@@ -3,6 +3,7 @@ pub mod codec_trait;
 pub mod delta;
 pub mod fdma;
 pub mod format;
+pub mod registry;
 pub mod zigzag;
 
 pub use cdma::*;

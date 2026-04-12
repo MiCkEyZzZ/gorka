@@ -7,7 +7,7 @@ description = "High-performance GNSS time-series compression codec"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/MiCkEyZzZ/gorka"
 readme = "README.md"
-keywords = ["gnss", "compression", "time-series", "glonass", "codec"]
+keywords = ["gnss", "compression", "time-series", "glonass", "codec", "gps", "galileo", "beidou"]
 categories = ["compression", "science"]
 
 # Минимальная поддерживаемая версия Rust
