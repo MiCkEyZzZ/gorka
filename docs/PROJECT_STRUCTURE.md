@@ -75,7 +75,9 @@ gorka
 │   │   ├── mod.rs
 │   │   └── stream.rs
 │   ├── wire
+│   │   ├── compatibility.rs
 │   │   ├── format.rs
+│   │   ├── header.rs
 │   │   └── mod.rs
 │   ├── error.rs
 │   ├── lib.rs
