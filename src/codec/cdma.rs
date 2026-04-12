@@ -17,7 +17,7 @@
 //! | `110`  | 16-bit zigzag   | \|delta\| < 32 768  |
 //! | `111`  | 32-bit verbatim | Large delta         |
 
-use crate::{encode_i64, BitReader, BitWrite, GorkaError, MilliHz, RawBitWriter};
+use crate::{encode_i64, BitReader, BitWrite, DopplerCodec, GorkaError, MilliHz, RawBitWriter};
 
 const SMALL_DELTA_BITS: u8 = 16;
 const LARGE_BITS: u8 = 32;
@@ -31,6 +31,8 @@ pub struct CdmaState {
     last: Option<MilliHz>,
 }
 
+pub struct CdmaCodec;
+
 impl CdmaState {
     /// Creates a new state (no previous observation).
     pub const fn new() -> Self {
@@ -43,91 +45,94 @@ impl CdmaState {
     }
 }
 
+impl DopplerCodec for CdmaCodec {
+    type State = CdmaState;
+    type Id = ();
+
+    fn encode(
+        writer: &mut RawBitWriter,
+        state: &mut Self::State,
+        value: MilliHz,
+        _id: Self::Id,
+    ) -> Result<(), GorkaError> {
+        match state.last {
+            None => {
+                writer.write_bit(false)?;
+                writer.write_bits(value.0 as u64 & 0xFFFF_FFFF, 32)?;
+
+                state.last = Some(value);
+            }
+            Some(prev) => {
+                let delta = value.0 as i64 - prev.0 as i64;
+                let zz = encode_i64(delta);
+
+                if delta == 0 {
+                    writer.write_bits(0b10, 2)?;
+                } else if zz < (1u64 << 16) {
+                    writer.write_bits(0b110, 3)?;
+                    writer.write_bits_signed(delta, SMALL_DELTA_BITS)?;
+                } else {
+                    writer.write_bits(0b111, 3)?;
+                    writer.write_bits(value.0 as u64 & 0xFFFF_FFFF, LARGE_BITS)?;
+                }
+
+                state.last = Some(value);
+            }
+        }
+
+        Ok(())
+    }
+
+    fn decode(
+        reader: &mut BitReader,
+        state: &mut Self::State,
+        _id: Self::Id,
+    ) -> Result<MilliHz, GorkaError> {
+        match state.last {
+            None => {
+                let flag = reader.read_bit()?;
+
+                if flag {
+                    return Err(GorkaError::InvalidBitPattern);
+                }
+
+                let raw = reader.read_bits(32)? as u32 as i32;
+                let obs = MilliHz(raw);
+
+                state.last = Some(obs);
+
+                Ok(MilliHz(raw))
+            }
+            Some(prev) => {
+                let b0 = reader.read_bit()?;
+                let b1 = reader.read_bit()?;
+
+                match (b0, b1) {
+                    (true, false) => Ok(prev),
+                    (true, true) => {
+                        let b2 = reader.read_bit()?;
+                        let obs = if !b2 {
+                            let delta = reader.read_bits_signed(SMALL_DELTA_BITS)? as i32;
+
+                            MilliHz(prev.0.wrapping_add(delta))
+                        } else {
+                            MilliHz(reader.read_bits(32)? as u32 as i32)
+                        };
+
+                        state.last = Some(obs);
+
+                        Ok(obs)
+                    }
+                    _ => Err(GorkaError::UnexpectedEof),
+                }
+            }
+        }
+    }
+}
+
 impl Default for CdmaState {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// Encodes a CDMA Doppler value (GPS, Galileo and BeiDou).
-///
-/// No baseline correction - just simple delta coding.
-pub fn encode_doppler_cdma(
-    writer: &mut RawBitWriter,
-    state: &mut CdmaState,
-    observed: MilliHz,
-) -> Result<(), GorkaError> {
-    match state.last {
-        None => {
-            writer.write_bit(false)?;
-            writer.write_bits(observed.0 as u64 & 0xFFFF_FFFF, 32)?;
-
-            state.last = Some(observed);
-        }
-        Some(prev) => {
-            let delta = observed.0 as i64 - prev.0 as i64;
-            let zz = encode_i64(delta);
-
-            if delta == 0 {
-                writer.write_bits(0b10, 2)?;
-            } else if zz < (1u64 << 16) {
-                writer.write_bits(0b110, 3)?;
-                writer.write_bits_signed(delta, SMALL_DELTA_BITS)?;
-            } else {
-                writer.write_bits(0b111, 3)?;
-                writer.write_bits(observed.0 as u64 & 0xFFFF_FFFF, LARGE_BITS)?;
-            }
-
-            state.last = Some(observed);
-        }
-    }
-
-    Ok(())
-}
-
-/// Decode a CDMA Doppler value.
-pub fn decode_doppler_cdma(
-    reader: &mut BitReader,
-    state: &mut CdmaState,
-) -> Result<MilliHz, GorkaError> {
-    match state.last {
-        None => {
-            let flag = reader.read_bit()?;
-
-            if flag {
-                return Err(GorkaError::InvalidBitPattern);
-            }
-
-            let raw = reader.read_bits(32)? as u32 as i32;
-            let observed = MilliHz(raw);
-
-            state.last = Some(observed);
-
-            Ok(MilliHz(raw))
-        }
-        Some(prev) => {
-            let b0 = reader.read_bit()?;
-            let b1 = reader.read_bit()?;
-
-            match (b0, b1) {
-                (true, false) => Ok(prev),
-                (true, true) => {
-                    let b2 = reader.read_bit()?;
-                    let observed = if !b2 {
-                        let delta = reader.read_bits_signed(SMALL_DELTA_BITS)? as i32;
-
-                        MilliHz(prev.0.wrapping_add(delta))
-                    } else {
-                        MilliHz(reader.read_bits(32)? as u32 as i32)
-                    };
-
-                    state.last = Some(observed);
-
-                    Ok(observed)
-                }
-                _ => Err(GorkaError::UnexpectedEof),
-            }
-        }
     }
 }
 
@@ -141,16 +146,21 @@ mod tests {
         let mut buf = vec![0u8; 4096];
         let mut state = CdmaState::new();
         let mut writer = RawBitWriter::new(&mut buf);
+
         for &v in values {
-            encode_doppler_cdma(&mut writer, &mut state, MilliHz(v)).unwrap();
+            CdmaCodec::encode(&mut writer, &mut state, MilliHz(v), ()).unwrap();
         }
+
         let n = writer.bytes_written();
         let mut reader = BitReader::new(&buf[..n]);
         let mut state2 = CdmaState::new();
         let mut out = vec![];
+
         for _ in values {
-            out.push(decode_doppler_cdma(&mut reader, &mut state2).unwrap().0);
+            let v = CdmaCodec::decode(&mut reader, &mut state2, ()).unwrap();
+            out.push(v.0);
         }
+
         out
     }
 

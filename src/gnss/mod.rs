@@ -11,16 +11,12 @@
 //! | `frame`         | [`GnssFrame`] — single-epoch multi-satellite buffer    |
 
 pub mod beidou;
-pub mod cdma;
-pub mod fdma;
 pub mod frame;
 pub mod galileo;
 pub mod glonass;
 pub mod gps;
 
 pub use beidou::*;
-pub use cdma::*;
-pub use fdma::*;
 pub use frame::*;
 pub use galileo::*;
 pub use glonass::*;

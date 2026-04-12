@@ -33,10 +33,12 @@
 //! # CDMA comparison
 //!
 //! GPS, Galileo and BeiDou all share a single carrier per band — no
-//! per-satellite frequency offset.  See [`crate::gnss::cdma`] for the simpler
+//! per-satellite frequency offset.  See [`crate::codec::cdma`] for the simpler
 //! CDMA path.
 
-use crate::{encode_i64, BitReader, BitWrite, GloSlot, GorkaError, MilliHz, RawBitWriter};
+use crate::{
+    encode_i64, BitReader, BitWrite, DopplerCodec, GloSlot, GorkaError, MilliHz, RawBitWriter,
+};
 
 /// Number of GLONASS frequency slots (k ∈ [-7, +6]).
 pub const N_SLOT: usize = 14;
@@ -67,6 +69,8 @@ pub struct FdmaState {
     /// Per-slot EMA baseline in millihertz.  `None` = not yet seen.
     baseline: [Option<MilliHz>; N_SLOT],
 }
+
+pub struct FdmaCodec;
 
 impl FdmaState {
     /// Creates a new state with all baselines uninitialised.
@@ -154,108 +158,110 @@ impl FdmaState {
     }
 }
 
+impl DopplerCodec for FdmaCodec {
+    type State = FdmaState;
+    type Id = GloSlot;
+
+    fn encode(
+        writer: &mut RawBitWriter,
+        state: &mut Self::State,
+        value: MilliHz,
+        id: Self::Id,
+    ) -> Result<(), GorkaError> {
+        let idx = FdmaState::idx(id);
+
+        if state.baseline[idx].is_none() {
+            writer.write_bit(false)?;
+            writer.write_bits(value.0 as u64 & 0xFFFF_FFFF, 32)?;
+
+            state.baseline[idx] = Some(value);
+
+            return Ok(());
+        }
+
+        // Compute residual (delta from previous baseline) and advance EMA.
+        let prev = state.baseline[idx].unwrap();
+        let residual = MilliHz(value.0.wrapping_sub(prev.0));
+        let encoded = encode_i64(residual.0 as i64);
+
+        if residual.0 == 0 {
+            writer.write_bits(0b10, 2)?; // '10'
+        } else if encoded < (1u64 << FDMA_RESIDUAL_BITS) {
+            writer.write_bits(0b110, 3)?; // '110' + 14b
+            writer.write_bits_signed(residual.0 as i64, FDMA_RESIDUAL_BITS)?;
+
+            state.update(id, value);
+        } else {
+            writer.write_bits(0b111, 3)?; // '111' + 32b
+            writer.write_bits(value.0 as u64 & 0xFFFF_FFFF, FDMA_VERBATIM_BITS)?;
+
+            // Re-seed baseline on large jump to avoid compounding error.
+            state.baseline[idx] = Some(value);
+        }
+
+        Ok(())
+    }
+
+    fn decode(
+        reader: &mut BitReader,
+        state: &mut Self::State,
+        id: Self::Id,
+    ) -> Result<MilliHz, GorkaError> {
+        let idx = FdmaState::idx(id);
+
+        if state.baseline[idx].is_none() {
+            // First observation: verbatim, flag bit is '0'
+            let flag = reader.read_bit()?;
+
+            debug_assert!(!flag);
+
+            let raw = reader.read_bits(32)? as u32 as i32;
+            let obs = MilliHz(raw);
+
+            state.baseline[idx] = Some(obs);
+
+            return Ok(obs);
+        }
+
+        let b0 = reader.read_bit()?;
+        let b1 = reader.read_bit()?;
+
+        match (b0, b1) {
+            // '10' — residual == 0, baseline doesn't change
+            (true, false) => {
+                let prev = state.baseline[idx].unwrap();
+
+                // EMA advance with zero residual = no change.
+                Ok(prev)
+            }
+            // '11x'
+            (true, true) => {
+                let b2 = reader.read_bit()?;
+
+                if !b2 {
+                    // '110' + 14b zigzag residual
+                    let residual = MilliHz(reader.read_bits_signed(FDMA_RESIDUAL_BITS)? as i32);
+                    let obs = state.reconstruct(id, residual)?;
+
+                    Ok(obs)
+                } else {
+                    // '111' + 32b verbatim (large jump, re-seed)
+                    let raw = reader.read_bits(FDMA_VERBATIM_BITS)? as u32 as i32;
+                    let obs = MilliHz(raw);
+
+                    state.baseline[idx] = Some(obs);
+
+                    Ok(obs)
+                }
+            }
+            _ => Err(GorkaError::UnexpectedEof),
+        }
+    }
+}
+
 impl Default for FdmaState {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-/// Encodes a GLONASS Doppler value using the per-slot FDMA baseline.
-pub fn encode_doppler_fdma(
-    writer: &mut RawBitWriter,
-    state: &mut FdmaState,
-    slot: GloSlot,
-    observed: MilliHz,
-) -> Result<(), GorkaError> {
-    let idx = FdmaState::idx(slot);
-
-    if state.baseline[idx].is_none() {
-        // First observation: write verbatim, seed baseline.
-        writer.write_bit(false)?;
-        writer.write_bits(observed.0 as u64 & 0xFFFF_FFFF, 32)?;
-
-        state.baseline[idx] = Some(observed);
-
-        return Ok(());
-    }
-
-    // Compute residual (delta from previous baseline) and advance EMA.
-    let prev = state.baseline[idx].unwrap();
-    let residual = MilliHz(observed.0.wrapping_sub(prev.0));
-    let encoded = encode_i64(residual.0 as i64);
-
-    if residual.0 == 0 {
-        writer.write_bits(0b10, 2)?; // '10'
-    } else if encoded < (1u64 << FDMA_RESIDUAL_BITS as u64) {
-        writer.write_bits(0b110, 3)?; // '110' + 14b
-        writer.write_bits_signed(residual.0 as i64, FDMA_RESIDUAL_BITS)?;
-
-        state.update(slot, observed);
-    } else {
-        writer.write_bits(0b111, 3)?; // '111' + 32b
-        writer.write_bits(observed.0 as u64 & 0xFFFF_FFFF, FDMA_VERBATIM_BITS)?;
-
-        // Re-seed baseline on large jump to avoid compounding error.
-        state.baseline[idx] = Some(observed);
-    }
-
-    Ok(())
-}
-
-/// Decodes a GLONASS Doppler value, reconstructing the original observation.
-pub fn decode_doppler_fdma(
-    reader: &mut BitReader,
-    state: &mut FdmaState,
-    slot: GloSlot,
-) -> Result<MilliHz, GorkaError> {
-    let idx = FdmaState::idx(slot);
-
-    if state.baseline[idx].is_none() {
-        // First observation: verbatim, flag bit is '0'
-        let flag = reader.read_bit()?;
-
-        debug_assert!(!flag);
-
-        let raw = reader.read_bits(32)? as u32 as i32;
-        let observed = MilliHz(raw);
-
-        state.baseline[idx] = Some(observed);
-
-        return Ok(observed);
-    }
-
-    let b0 = reader.read_bit()?;
-    let b1 = reader.read_bit()?;
-
-    match (b0, b1) {
-        // '10' — residual == 0, baseline doesn't change
-        (true, false) => {
-            let prev = state.baseline[idx].unwrap();
-
-            // EMA advance with zero residual = no change.
-            Ok(prev)
-        }
-        // '11x'
-        (true, true) => {
-            let b2 = reader.read_bit()?;
-
-            if !b2 {
-                // '110' + 14b zigzag residual
-                let residual = MilliHz(reader.read_bits_signed(FDMA_RESIDUAL_BITS)? as i32);
-
-                let observed = state.reconstruct(slot, residual)?;
-                Ok(observed)
-            } else {
-                // '111' + 32b verbatim (large jump, re-seed)
-                let raw = reader.read_bits(FDMA_VERBATIM_BITS)? as u32 as i32;
-
-                let observed = MilliHz(raw);
-                state.baseline[idx] = Some(observed);
-
-                Ok(observed)
-            }
-        }
-        _ => Err(GorkaError::UnexpectedEof),
     }
 }
 
@@ -275,7 +281,7 @@ mod tests {
         let mut writer = RawBitWriter::new(&mut buf);
 
         for &(s, v) in values {
-            encode_doppler_fdma(&mut writer, &mut enc_state, s, MilliHz(v)).unwrap();
+            FdmaCodec::encode(&mut writer, &mut enc_state, MilliHz(v), s).unwrap();
         }
 
         let n = writer.bytes_written();
@@ -284,11 +290,9 @@ mod tests {
         let mut out = vec![];
 
         for &(s, _) in values {
-            out.push(
-                decode_doppler_fdma(&mut reader, &mut dec_state, s)
-                    .unwrap()
-                    .0,
-            );
+            let v = FdmaCodec::decode(&mut reader, &mut dec_state, s).unwrap();
+
+            out.push(v.0);
         }
 
         out

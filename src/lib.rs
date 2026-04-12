@@ -46,8 +46,9 @@ pub use bits::BitReader;
 pub use bits::{BitWrite, RawBitWriter};
 pub use codec::{
     decode_i64, delta_i64, delta_of_delta_i64, delta_of_delta_u64, delta_u64, encode_i64,
-    reconstruct_from_delta, reconstruct_from_dod, reconstruct_from_dod_u64, CompatibilityInfo,
-    FormatVersion, VersionUtils, CHUNK_MAGIC,
+    reconstruct_from_delta, reconstruct_from_dod, reconstruct_from_dod_u64, CdmaCodec, CdmaState,
+    CompatibilityInfo, DopplerCodec, FdmaCodec, FdmaState, FormatVersion, VersionUtils,
+    CHUNK_MAGIC, EMA_SHIFT, N_SLOT,
 };
 pub use domain::{
     BdsPrn, ConstellationType, DbHz, GalSvn, GloSlot, GnssMeasurement, GnssSample, GpsPrn, Hertz,
@@ -55,10 +56,9 @@ pub use domain::{
 };
 pub use error::GorkaError;
 pub use gnss::{
-    decode_doppler_cdma, encode_doppler_cdma, encode_doppler_fdma, BeidouSample, CdmaState,
-    FdmaState, GalileoSample, GlonassSample, GnssEpoch, GnssFrame, GpsSample, BDS_B1C_FREQ,
-    BDS_B1I_FREQ, BDS_B2A_FREQ, EMA_SHIFT, GAL_E1_FREQ, GAL_E5A_FREQ, GAL_E5B_FREQ, GPS_L1_FREQ,
-    GPS_L2_FREQ, MAX_GLONASS_SATS, N_SLOT,
+    BeidouSample, GalileoSample, GlonassSample, GnssEpoch, GnssFrame, GpsSample, BDS_B1C_FREQ,
+    BDS_B1I_FREQ, BDS_B2A_FREQ, GAL_E1_FREQ, GAL_E5A_FREQ, GAL_E5B_FREQ, GPS_L1_FREQ, GPS_L2_FREQ,
+    MAX_GLONASS_SATS,
 };
 pub use pipeline::{
     GlonassDecoder, GlonassEncoder, StreamEncoder, STREAM_ENCODER_MIN_BUF_NO_PHASE,
