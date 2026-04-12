@@ -44,9 +44,6 @@ gorka
 │   │   ├── raw_writer.rs
 │   │   └── reader.rs
 │   ├── codec
-│   │   ├── format
-│   │   │   ├── mod.rs
-│   │   │   └── version.rs
 │   │   ├── cdma.rs
 │   │   ├── codec_trait.rs
 │   │   ├── delta.rs
@@ -57,6 +54,7 @@ gorka
 │   ├── domain
 │   │   ├── gnss
 │   │   │   ├── constellation.rs
+│   │   │   ├── frame.rs
 │   │   │   ├── identifiers.rs
 │   │   │   ├── measurement.rs
 │   │   │   └── mod.rs
@@ -69,13 +67,6 @@ gorka
 │   │   │   ├── millimeter.rs
 │   │   │   └── mod.rs
 │   │   └── mod.rs
-│   ├── gnss
-│   │   ├── beidou.rs
-│   │   ├── frame.rs
-│   │   ├── galileo.rs
-│   │   ├── glonass.rs
-│   │   ├── gps.rs
-│   │   └── mod.rs
 │   ├── io
 │   │   └── mod.rs
 │   ├── pipeline
@@ -83,6 +74,9 @@ gorka
 │   │   ├── encoder.rs
 │   │   ├── mod.rs
 │   │   └── stream.rs
+│   ├── wire
+│   │   ├── format.rs
+│   │   └── mod.rs
 │   ├── error.rs
 │   ├── lib.rs
 │   └── prelude.rs

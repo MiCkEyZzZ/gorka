@@ -8,8 +8,11 @@
 /src/ @MiCkEyZzZ
 /src/bits/ @MiCkEyZzZ
 /src/codec/ @MiCkEyZzZ
+/src/domain/ @MiCkEyZzZ
 /src/gnss/ @MiCkEyZzZ
 /src/io/ @MiCkEyZzZ
+/src/pipeline/ @MiCkEyZzZ
+/src/wire/ @MiCkEyZzZ
 
 # ================================
 # Fuzzing and tests
